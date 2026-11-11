@@ -20,6 +20,8 @@ BG, BTN, BTN_HI, FG, MUTED, ACCENT = "#1e1f24", "#2c2e35", "#3a3d46", "#e8e8ea",
 LCD_BG, LCD_FG, LCD_DIM = "#c7d1bd", "#1d2a1d", "#9aa58f"
 OK_FG, ERR_FG = "#7fbf7f", "#e07070"
 DEFAULT_COMMANDS = ["powerful", "swing", "airflow", "airflow_h"]
+CHECK_EVERY_MS = 60000
+SILENT = object()   # a job returning this doesn't touch the status line
 
 
 def single_instance():
@@ -50,7 +52,8 @@ class Worker(threading.Thread):
         while True:
             job = self.q.get()
             try:
-                job()
+                if job() is SILENT:
+                    continue
                 self.report(True, "")
             except BaseException as e:
                 self.report(False, str(e) or e.__class__.__name__)
@@ -78,6 +81,7 @@ class Panel:
         self.render()
         self.last_seen = self.state_text()
         root.after(1500, self.poll)
+        root.after(300, self.check_link)
         root.protocol("WM_DELETE_WINDOW", self.close)
 
     # ------------------------------------------------------------ layout
@@ -126,13 +130,15 @@ class Panel:
 
         bottom = tk.Frame(self.root, bg=BG)
         bottom.grid(row=row, column=0, columnspan=3, sticky="ew", padx=8, pady=(0, 6))
-        bottom.columnconfigure(0, weight=1)
+        bottom.columnconfigure(1, weight=1)
+        self.l_link = tk.Label(bottom, text="●", bg=BG, fg=MUTED, font=("Segoe UI", 9))
+        self.l_link.grid(row=0, column=0, sticky="w", padx=(0, 4))
         self.l_status = tk.Label(bottom, bg=BG, fg=MUTED, font=("Segoe UI", 8), anchor="w")
-        self.l_status.grid(row=0, column=0, sticky="w")
+        self.l_status.grid(row=0, column=1, sticky="w")
         self.pin = tk.BooleanVar(value=True)
         tk.Checkbutton(bottom, text=self.t["pin"], variable=self.pin, command=self.toggle_pin, bg=BG, fg=MUTED,
                        selectcolor=BG, activebackground=BG, activeforeground=FG, font=("Segoe UI", 8),
-                       bd=0).grid(row=0, column=1, sticky="e")
+                       bd=0).grid(row=0, column=2, sticky="e")
         for c in range(3):
             self.root.columnconfigure(c, weight=1, minsize=96)
 
@@ -162,7 +168,21 @@ class Panel:
     def show_result(self, ok, msg):
         self.st = self.ac.read_state()
         self.render()
+        self.set_link(ok, msg)
         self.status(self.t["sent"], OK_FG) if ok else self.status(self.t["error"] + msg[:70], ERR_FG)
+
+    def set_link(self, ok, msg=""):
+        self.l_link.config(fg=OK_FG if ok else ERR_FG)
+        self.link_msg = msg
+
+    def check_link(self):
+        """Ping the blaster in the background now and every minute (green / red dot)."""
+        def job():
+            ok, msg = self.ac.link.check()
+            self.root.after(0, self.set_link, ok, msg)
+            return SILENT
+        self.worker.q.put(job)
+        self.root.after(CHECK_EVERY_MS, self.check_link)
 
     # ------------------------------------------------------------ actions
     def run(self, job):

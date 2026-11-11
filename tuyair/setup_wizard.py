@@ -69,14 +69,25 @@ def run(cfg):
     cfg.save()
 
     print("\nStep 4/4 - Testing the connection...")
-    ok, msg = D.reachable(D.open_local(cfg.device(name)).status())
+    ok, msg = D.Link(cfg, name).check()
     print(f"  {'OK' if ok else 'FAILED'}: {msg}")
 
     if yes("\nIs it an air conditioner you want to control (panel + hotkeys)?"):
         protos = available()
         print("  Protocols: " + ", ".join(f"{k} ({v})" for k, v in protos.items()))
+        print("  fujitsu works locally and fast; tuya-cloud works with any brand the Smart Life app supports.")
         proto = ask("  Protocol", "fujitsu")
-        cfg.data["ac"] = {**(cfg.get("ac") or {}), "device": name, "protocol": proto}
+        ac = {**(cfg.get("ac") or {}), "device": name, "protocol": proto}
+        if proto == "tuya-cloud":
+            remotes = [d for d in devices if d.get("category") == "infrared_ac" or "air" in str(d.get("category"))]
+            if not remotes:
+                print("  No AC remote found. In the Smart Life app open your IR blaster, add an air conditioner")
+                print("  remote (pick your brand, test the code), then run  tuyair setup  again.")
+            else:
+                for i, d in enumerate(remotes, 1):
+                    print(f"    {i}. {d.get('name')}  ({d.get('id')})")
+                ac["remote_device_id"] = remotes[int(ask("  AC remote number", "1")) - 1]["id"]
+        cfg.data["ac"] = ac
         cfg.save()
         print("\nNext steps:")
         print("  tuyair ac on / tuyair ac off          test power")

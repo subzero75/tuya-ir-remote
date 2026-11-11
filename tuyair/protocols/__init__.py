@@ -11,6 +11,7 @@ class Protocol:
 
     name = "base"
     title = "Base"
+    is_cloud = False            # True: sends through the Tuya cloud instead of raw IR pulses
     modes = ["cool"]            # first one is the default
     fans = ["auto"]
     swings = ["off"]
@@ -40,16 +41,18 @@ class Protocol:
         raise ValueError("calibration not supported")
 
 
-def get_protocol(name, options=None):
-    from . import fujitsu
+def _registry():
+    from . import fujitsu, tuya_cloud
 
-    protocols = {"fujitsu": fujitsu.Fujitsu}
+    return {"fujitsu": fujitsu.Fujitsu, "tuya-cloud": tuya_cloud.TuyaCloud}
+
+
+def get_protocol(name, options=None):
+    protocols = _registry()
     if name not in protocols:
         raise KeyError(f"Unknown protocol '{name}'. Available: {', '.join(protocols)}")
     return protocols[name](options)
 
 
 def available():
-    from . import fujitsu
-
-    return {"fujitsu": fujitsu.Fujitsu.title}
+    return {k: v.title for k, v in _registry().items()}

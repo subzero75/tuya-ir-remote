@@ -21,7 +21,7 @@ def cmd_test(cfg, a):
         raise ConfigError("No devices configured. Run:  tuyair setup")
     ok_all = True
     for name in names:
-        ok, msg = D.reachable(D.open_local(cfg.device(name)).status())
+        ok, msg = D.Link(cfg, name).check()
         ok_all &= ok
         cfg.log(f"[{name}] {'OK' if ok else 'NOT reachable'}: {msg}")
     return 0 if ok_all else 1
@@ -277,7 +277,7 @@ def main(argv=None):
             raise ConfigError(f"No config at {cfg.path}. Run:  tuyair setup")
         return a.func(cfg, a) or 0
     except (ConfigError, D.DeviceError, KeyError, ValueError) as e:
-        msg = str(e).strip("'\"")
+        msg = str(e.args[0]) if isinstance(e, KeyError) and e.args else str(e)
         try:
             cfg.log("ERROR: " + msg)
         except Exception:

@@ -105,3 +105,72 @@ def test_ac_state_flow(tmp_path, monkeypatch):
     assert ac.read_state()["powerful"] is True
     ac.off()
     assert ac.read_state()["power"] is False and sent[-1] == "14 63 00 10 10 02 FD"
+
+
+def test_cloud_protocol_commands():
+    p = get_protocol("tuya-cloud", {"remote_device_id": "r1"})
+    assert p.is_cloud
+    on = p.commands({"mode": "cool", "temp": 22, "fan": "high"}, True)
+    assert on == [{"code": "power", "value": True}, {"code": "mode", "value": 0},
+                  {"code": "wind", "value": 3}, {"code": "temp", "value": 22}]
+    fan_only = p.commands({"mode": "fan", "temp": 22, "fan": "low"}, False)
+    assert {"code": "temp", "value": 22} not in fan_only and fan_only[0]["code"] == "mode"
+    assert p.off_commands() == [{"code": "power", "value": False}]
+
+
+def test_ac_cloud_flow(tmp_path, monkeypatch):
+    from tuyair.ac import AC
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"devices": {"ir": {"id": "x", "key": "y"}}, "cloud": {"key": "k", "secret": "s"},
+                                "ac": {"protocol": "tuya-cloud", "remote_device_id": "r1"}}))
+    ac = AC(Config(path))
+    sent = []
+    monkeypatch.setattr(ac.protocol, "send", lambda cloud, cmds: sent.append(cmds))
+    ac.write_state({"power": False, "mode": "cool", "temp": 24, "fan": "quiet", "swing": "both"})
+    st = ac.on()
+    assert st["fan"] == "auto" and st["swing"] == "off"          # normalized to what the protocol supports
+    assert sent[-1][0] == {"code": "power", "value": True}
+    ac.step("temp", "-1")
+    assert {"code": "temp", "value": 23} in sent[-1] and sent[-1][0]["code"] != "power"
+    with pytest.raises(KeyError):
+        ac.command("powerful")                                    # not available through the cloud
+    ac.off()
+    assert sent[-1] == [{"code": "power", "value": False}]
+
+
+def test_link_rediscovers_new_ip(tmp_path, monkeypatch):
+    from tuyair import device as D
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"devices": {"ir": {"id": "x", "key": "y", "ip": "10.0.0.5", "version": 3.3}}}))
+    cfg = Config(path)
+    calls = []
+
+    class Handle:
+        def __init__(self, ip):
+            self.ip = ip
+
+        def send_button(self, code):
+            calls.append(self.ip)
+            return None if self.ip == "10.0.0.9" else {"Error": "Network Error: Unable to Connect", "Err": "901"}
+
+    monkeypatch.setattr(D, "open_local", lambda dev: Handle(dev["ip"]))
+    monkeypatch.setattr(D, "find_on_network", lambda dev_id: ("10.0.0.9", "3.5"))
+    D.Link(cfg, "ir").send(codes.pulses_to_base64([100, 200, 300]))
+    assert calls == ["10.0.0.5", "10.0.0.9"]
+    saved = json.loads(path.read_text())["devices"]["ir"]
+    assert saved["ip"] == "10.0.0.9" and saved["version"] == 3.5
+
+
+def test_link_does_not_retry_on_other_errors(tmp_path, monkeypatch):
+    from tuyair import device as D
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"devices": {"ir": {"id": "x", "key": "y", "ip": "10.0.0.5"}}}))
+
+    class Handle:
+        def send_button(self, code):
+            return {"Error": "Unexpected Payload from Device", "Err": "904"}
+
+    monkeypatch.setattr(D, "open_local", lambda dev: Handle())
+    monkeypatch.setattr(D, "find_on_network", lambda dev_id: pytest.fail("should not search"))
+    with pytest.raises(D.DeviceError):
+        D.Link(Config(path), "ir").send("AAAA")

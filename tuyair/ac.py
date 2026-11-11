@@ -5,8 +5,8 @@ the hotkeys and the panel through ac_state.json next to the config file.
 """
 import json
 
-from . import device as D
 from .codes import pulses_to_base64
+from .device import Link
 from .config import write_json_atomic
 from .protocols import get_protocol
 
@@ -18,7 +18,7 @@ class AC:
         self.cfg = cfg
         self.opts = cfg.get("ac") or {}
         self.protocol = get_protocol(self.opts.get("protocol", "fujitsu"), self.opts)
-        self._dev = None
+        self._link = None
 
     # ------------------------------------------------------------ state
     def read_state(self):
@@ -38,30 +38,49 @@ class AC:
             pass
 
     # ------------------------------------------------------------ sending
-    def device(self):
-        if self._dev is None:
-            self._dev = D.open_local(self.cfg.device(self.opts.get("device")))
-        return self._dev
+    @property
+    def link(self):
+        """Self-healing connection to the blaster (finds it again if its IP changes)."""
+        if self._link is None:
+            self._link = Link(self.cfg, self.opts.get("device"))
+        return self._link
 
     def send_pulses(self, pulses):
-        try:
-            D.send(self.device(), pulses_to_base64(pulses))
-        except Exception:
-            self._dev = None  # reconnect next time
-            raise
+        self.link.send(pulses_to_base64(pulses))
+
+    def _send_state(self, st, power_on):
+        if self.protocol.is_cloud:
+            self.protocol.send(self.cfg.get("cloud"), self.protocol.commands(st, power_on))
+        else:
+            self.send_pulses(self.protocol.full_state(st, power_on))
+
+    def _send_off(self):
+        if self.protocol.is_cloud:
+            self.protocol.send(self.cfg.get("cloud"), self.protocol.off_commands())
+        else:
+            self.send_pulses(self.protocol.off())
+
+    def normalize(self, st):
+        p = self.protocol
+        st["temp"] = max(p.temp_min, min(p.temp_max, int(st.get("temp", 24))))
+        for field, choices in (("mode", p.modes), ("fan", p.fans), ("swing", p.swings)):
+            if st.get(field) not in choices:
+                st[field] = choices[0]
+        return st
 
     # ------------------------------------------------------------ actions
     def on(self, **changes):
         st = self.read_state()
         st.update({k: v for k, v in changes.items() if v is not None})
+        self.normalize(st)
         st.update(power=True, powerful=False)
-        self.send_pulses(self.protocol.full_state(st, power_on=True))
+        self._send_state(st, power_on=True)
         self.write_state(st)
         return st
 
     def off(self):
         st = self.read_state()
-        self.send_pulses(self.protocol.off())
+        self._send_off()
         st.update(power=False, powerful=False)
         self.write_state(st)
         return st
@@ -73,12 +92,11 @@ class AC:
         """Change mode/temp/fan/swing. Sent only while the AC is on (like the real remote)."""
         st = self.read_state()
         st.update({k: v for k, v in changes.items() if v is not None})
-        p = self.protocol
-        st["temp"] = max(p.temp_min, min(p.temp_max, int(st["temp"])))
+        self.normalize(st)
         if "mode" in changes and changes["mode"] is not None:
             st["powerful"] = False
         if send and st.get("power"):
-            self.send_pulses(p.full_state(st, power_on=False))
+            self._send_state(st, power_on=False)
         self.write_state(st)
         return st
 
@@ -98,6 +116,10 @@ class AC:
         return self.set(**{field: value})
 
     def command(self, name):
+        if name not in self.protocol.short_commands:
+            have = ", ".join(self.protocol.short_commands) or "none"
+            raise KeyError(f"'{name}' is not available for {self.protocol.title} (available: {have}). "
+                           f"Learn it instead:  tuyair learn {name}")
         st = self.read_state()
         self.send_pulses(self.protocol.short(name))
         if name == "powerful":

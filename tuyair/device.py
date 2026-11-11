@@ -11,7 +11,9 @@ CLOUD_HINTS = {
 
 
 class DeviceError(Exception):
-    pass
+    def __init__(self, msg, err=None):
+        super().__init__(msg)
+        self.err = err
 
 
 def _tinytuya():
@@ -60,7 +62,84 @@ def reachable(result):
 def send(dev_handle, code):
     result = dev_handle.send_button(to_base64(code))
     if is_error(result):
-        raise DeviceError(f"Send failed: {result.get('Error')}")
+        raise DeviceError(f"Send failed: {result.get('Error')}", str(result.get("Err")))
+
+
+def find_on_network(device_id):
+    """Look for the blaster on the LAN. Returns (ip, version) or None."""
+    t = _tinytuya()
+    try:
+        r = t.find_device(device_id)
+        if isinstance(r, dict) and r.get("ip"):
+            return r["ip"], r.get("version")
+    except Exception:
+        pass
+    try:
+        for v in (t.deviceScan(verbose=False, maxretry=12) or {}).values():
+            if device_id in (v.get("gwId"), v.get("id")):
+                return v.get("ip"), v.get("version")
+    except Exception:
+        pass
+    return None
+
+
+class Link:
+    """A connection to one configured blaster that heals itself: if sending fails (for example
+    because the router gave the blaster a new IP), it finds the blaster again, updates the
+    config, and retries once."""
+
+    def __init__(self, cfg, name=None):
+        self.cfg = cfg
+        self.name = cfg.device_name(name)
+        self._h = None
+
+    def handle(self):
+        if self._h is None:
+            self._h = open_local(self.cfg.device(self.name))
+        return self._h
+
+    def rediscover(self):
+        dev = self.cfg.device(self.name)
+        self.cfg.log(f"[{self.name}] not answering at {dev.get('ip')}; searching the network...")
+        found = find_on_network(dev["id"])
+        if not found:
+            return False
+        ip, version = found
+        if ip != dev.get("ip") or (version and str(version) != str(dev.get("version"))):
+            dev["ip"] = ip
+            if version:
+                dev["version"] = float(version)
+            self.cfg.save()
+            self.cfg.log(f"[{self.name}] found at {ip} (version {dev.get('version')}); config updated.")
+        self._h = None
+        return True
+
+    def send(self, code):
+        try:
+            send(self.handle(), code)
+            return
+        except DeviceError as e:
+            if e.err not in (None, "None", "901", "902", "905", "914"):
+                raise
+            first = e
+        except Exception as e:  # socket errors
+            first = DeviceError(f"Send failed: {e}")
+        self._h = None
+        if self.rediscover():
+            send(self.handle(), code)
+            return
+        raise DeviceError(f"{first} - blaster not found on the network. Is it powered and on the same network?")
+
+    def check(self):
+        try:
+            ok, msg = reachable(self.handle().status())
+        except Exception as e:
+            ok, msg = False, str(e)
+        if not ok:
+            self._h = None
+            if self.rediscover():
+                ok, msg = reachable(self.handle().status())
+        return ok, msg
 
 
 def learn_local(dev_handle, timeout=15):
@@ -68,13 +147,14 @@ def learn_local(dev_handle, timeout=15):
 
 
 # ------------------------------------------------------------------ cloud
-def cloud_client(cloud_cfg, device_id):
+def cloud_client(cloud_cfg, device_id=None):
     tinytuya = _tinytuya()
     if not cloud_cfg or not cloud_cfg.get("key") or not cloud_cfg.get("secret"):
         raise DeviceError('Cloud is not configured. Run "tuyair setup" or add a "cloud" section '
                           '({"region": "eu", "key": "...", "secret": "..."}).')
+    kwargs = {"apiDeviceID": device_id} if device_id else {}
     return tinytuya.Cloud(apiRegion=cloud_cfg.get("region", "eu"), apiKey=cloud_cfg["key"],
-                          apiSecret=cloud_cfg["secret"], apiDeviceID=device_id)
+                          apiSecret=cloud_cfg["secret"], **kwargs)
 
 
 def cloud_error(r):

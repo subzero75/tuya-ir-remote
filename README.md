@@ -7,8 +7,11 @@ Wi-Fi IR blaster**, **locally on your network** — no Alexa, no IFTTT, no delay
 - **PC hotkeys** (Windows / AutoHotkey) that work inside games, with any keyboard language
 - **Command line** for scripts and automation: `tuyair ac on`, `tuyair ac temp +1`, `tuyair send tv_power`
 - **Learn** buttons from your remote — locally, or through the Tuya cloud for blasters that won't report locally
-- **Generate** AC codes without learning (Fujitsu / General / O General built in), and **calibrate**
-  them to your exact remote if the generic timings don't work
+- **Any AC brand**: full control (on/off, mode, temperature, fan) of every air conditioner the
+  Smart Life app supports, through the Tuya cloud — or **locally and instantly** for Fujitsu / General /
+  O General, with **calibration** to your exact remote
+- **Self-healing connection**: if the router gives the blaster a new IP, it finds it again and updates
+  the config by itself; the window shows a green / red connection dot
 - English and Arabic interface (auto-detected); more languages welcome
 
 > 🇸🇦 [الشرح بالعربي في الأسفل](#بالعربي)
@@ -46,6 +49,17 @@ Your settings (keys, buttons, calibration) are in `config.json` — `tuyair setu
 **Back it up** and **never share it**: it contains your device key and cloud secret.
 
 ## Air conditioner
+
+Two ways, chosen in `tuyair setup` (or `"protocol"` under `"ac"` in `config.json`):
+
+| Protocol | Brands | Needs | Speed |
+|---|---|---|---|
+| `fujitsu` | Fujitsu, General, O General | nothing extra (local) | instant |
+| `tuya-cloud` | **any brand** the Smart Life app supports | internet + an AC remote added to your blaster in the app | ~1 s |
+
+For `tuya-cloud`: in the Smart Life app open your IR blaster, add an *Air conditioner* remote, pick
+your brand and confirm the test code works. Setup then lets you pick that remote.
+Extra buttons the cloud doesn't cover (powerful, swing...) can be learned: `tuyair learn powerful`.
 
 ```
 tuyair ac on                       # turn on with the last settings
@@ -102,7 +116,7 @@ On Linux/macOS, bind the same commands (`tuyair ac on`, `tuyair panel`...) in yo
 |---|---|
 | `json obj data unvalid` | Normal for IR blasters: the device answered with your key, it just has no status. |
 | Setup can't find the blaster | Make sure it's powered and on the same network; allow Python in the firewall (UDP 6666/6667/7000); or enter the IP from your router. |
-| Worked before, now fails | The IP changed (reserve it in your router) or the blaster was re-paired (new key → run `tuyair setup` again). |
+| Worked before, now fails | A new IP is found automatically. If the blaster was re-paired in the app it has a new key → run `tuyair setup` again. |
 | `learn` gets nothing | Some blasters only report learned codes to the cloud: authorize *IR Control Hub Open Service* and it falls back automatically. Try `"control_type": 1` for older blasters. |
 | `This API is not subscribed` | Authorize *IR Control Hub Open Service* in the cloud project. |
 | AC turns off but not on | `tuyair ac calibrate` |
@@ -128,7 +142,9 @@ MIT
 - **اختصارات كيبورد على ويندوز:** تشتغل داخل الألعاب، ومع أي لغة كيبورد.
 - **أوامر سطر الأوامر:** مثل `tuyair ac on` و`tuyair ac temp +1`.
 - **تعلّم الأزرار:** محلياً، أو عن طريق السحابة إذا كان جهازك ما يرسل الأكواد اللي يتعلّمها محلياً.
-- **توليد أكواد المكيف بدون تعلّم:** مدعوم حالياً Fujitsu وGeneral وO General، مع **معايرة** على ريموتك إذا ما اشتغلت الأكواد العامة.
+- **التحكم الكامل بأي مكيف يدعمه Smart Life:** التشغيل والحرارة والوضع والمروحة، عن طريق السحابة.
+- **التحكم المحلي الفوري لمكيفات Fujitsu وGeneral وO General:** مع **معايرة** على ريموتك إذا ما اشتغلت الأكواد العامة.
+- **اتصال يصلّح نفسه:** إذا تغيّر عنوان الـ IP حق جهاز الـ IR، البرنامج يلقاه ويحدّث الإعدادات بنفسه. والنافذة فيها نقطة خضراء أو حمراء توضح حالة الاتصال.
 
 ### التثبيت والإعداد
 
@@ -155,5 +171,6 @@ MIT
 
 - **المكيف ينطفي بس ما يشتغل:** شغّل `tuyair ac calibrate`، وهو يلتقط إشارة التشغيل الحقيقية من ريموتك.
 - **رسالة json obj data unvalid:** طبيعية، ومعناها إن الجهاز رد بالمفتاح الصحيح.
-- **كان شغال ووقف:** غالباً تغيّر عنوان الـ IP، فثبّته من الراوتر. أو أعدت ربط الجهاز، فأعد `tuyair setup`.
+- **مكيف من ماركة ثانية:** في Smart Life أضف ريموت مكيف لجهاز الـ IR واختر ماركتك، وبعدها اختر `tuya-cloud` في `tuyair setup`.
+- **كان شغال ووقف:** تغيّر الـ IP يتحل تلقائياً. أما إذا أعدت ربط الجهاز في التطبيق، فأعد `tuyair setup`.
 - **ملف الإعدادات:** `config.json` فيه مفاتيح سرية. خذ منه نسخة احتياطية، ولا تشاركه مع أحد.
