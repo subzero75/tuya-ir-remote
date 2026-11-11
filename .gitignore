@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+# your own settings contain device keys and cloud secrets - never commit them
+config.json
+ac_state.json
+*.log
+*.ahk
+!examples/*.ahk

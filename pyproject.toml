@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tuyair"
+dynamic = ["version"]
+description = "Control IR devices and air conditioners through a Tuya / Smart Life IR blaster, locally: CLI, control window and PC hotkeys."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+dependencies = ["tinytuya>=1.13"]
+keywords = ["tuya", "smart life", "ir", "infrared", "air conditioner", "fujitsu", "o general", "hotkeys"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Home Automation",
+]
+
+[project.urls]
+Homepage = "https://github.com/subzero75/tuya-ir-remote"
+Issues = "https://github.com/subzero75/tuya-ir-remote/issues"
+
+[project.scripts]
+tuyair = "tuyair.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "tuyair.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["tuyair*"]

@@ -1,0 +1,107 @@
+import json
+import struct
+
+import pytest
+
+from tuyair import codes
+from tuyair.config import Config
+from tuyair.hotkeys import ahk_key, build_script
+from tuyair.protocols import get_protocol
+
+# Power-on frame captured from a real O General AR-RAJ1E remote (cool 24 C, fan high),
+# as returned by Tuya cloud learning: hex of little-endian uint16 pulses.
+REAL_TIMING = {"hdr_mark": 3103, "hdr_space": 1653, "bit_mark": 391, "zero_space": 438,
+               "one_space": 1234, "gap": 8000}
+REAL_BYTES = "14 63 00 10 10 FE 09 30 81 01 01 00 00 00 20 2D"
+
+
+def real_capture_hex():
+    p = get_protocol("fujitsu", {"timing": REAL_TIMING})
+    pulses = p.full_state({"mode": "cool", "temp": 24, "fan": "high", "swing": "off"}, True)
+    return struct.pack("<%dH" % len(pulses), *pulses).hex()
+
+
+def test_full_state_matches_real_remote():
+    p = get_protocol("fujitsu")
+    data = p.full_bytes({"mode": "cool", "temp": 24, "fan": "high", "swing": "off"}, True)
+    assert " ".join("%02X" % b for b in data) == REAL_BYTES
+
+
+def test_short_command_and_off():
+    p = get_protocol("fujitsu")
+    assert p.short_bytes(0x39) == [0x14, 0x63, 0x00, 0x10, 0x10, 0x39, 0xC6]
+    assert p.decode(p.off()) == "14 63 00 10 10 02 FD"
+
+
+def test_hex_and_base64_are_the_same_code():
+    hx = real_capture_hex()
+    b64 = codes.to_base64(hx)
+    assert codes.to_pulses(hx) == codes.to_pulses(b64)
+    assert codes.to_base64(b64) == b64
+
+
+def test_calibrate_from_capture():
+    p = get_protocol("fujitsu")
+    timing = p.calibrate(codes.to_pulses(real_capture_hex()))
+    assert timing == REAL_TIMING
+    calibrated = get_protocol("fujitsu", {"timing": timing})
+    pulses = calibrated.full_state({"mode": "cool", "temp": 24, "fan": "high", "swing": "off"}, True)
+    assert pulses == codes.to_pulses(real_capture_hex())
+
+
+def test_calibrate_rejects_other_protocols():
+    with pytest.raises(ValueError):
+        get_protocol("fujitsu").calibrate([9000, 4500] + [560, 560] * 40)
+
+
+@pytest.mark.parametrize("temp", [16, 22, 30])
+def test_checksum(temp):
+    data = get_protocol("fujitsu").full_bytes({"mode": "heat", "temp": temp, "fan": "low", "swing": "both"}, False)
+    assert sum(data[7:]) & 0xFF == 0
+
+
+def test_temperature_range():
+    with pytest.raises(ValueError):
+        get_protocol("fujitsu").full_bytes({"temp": 40}, True)
+
+
+def test_hotkey_keys_are_layout_independent():
+    assert ahk_key("ctrl+alt+a") == "^!vk41"
+    assert ahk_key("Ctrl+Shift+F5") == "^+F5"
+    assert ahk_key("win+alt+1") == "#!vk31"
+    assert ahk_key("ctrl+alt+up") == "^!Up"
+    with pytest.raises(ValueError):
+        ahk_key("hyper+a")
+
+
+def test_hotkey_script(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"devices": {"ir": {"id": "x", "key": "y"}},
+                                "hotkeys": {"ctrl+alt+p": "ac cmd powerful", "ctrl+alt+t": "tv_power",
+                                            "ctrl+alt+a": "@panel"}}))
+    script = build_script(Config(path))
+    assert '^!vk50:: Tuyair("ac cmd powerful"' in script
+    assert '^!vk54:: Tuyair("send tv_power"' in script
+    assert '^!vk41:: Tuyair("panel"' in script
+
+
+def test_ac_state_flow(tmp_path, monkeypatch):
+    from tuyair.ac import AC
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"devices": {"ir": {"id": "x", "key": "y"}}, "ac": {"protocol": "fujitsu"}}))
+    cfg = Config(path)
+    ac = AC(cfg)
+    sent = []
+    monkeypatch.setattr(ac, "send_pulses", lambda p: sent.append(ac.protocol.decode(p)))
+    ac.set(temp=22)                      # off: stored, not sent
+    assert sent == []
+    st = ac.on(fan="high")
+    assert st["power"] and st["temp"] == 22 and sent[-1].startswith("14 63 00 10 10 FE")
+    ac.step("temp", "+1")
+    assert ac.read_state()["temp"] == 23 and sent[-1].split()[8] == "70"   # power bit cleared, 23C
+    ac.step("mode", "next")
+    assert ac.read_state()["mode"] == "dry"
+    ac.command("powerful")
+    assert ac.read_state()["powerful"] is True
+    ac.off()
+    assert ac.read_state()["power"] is False and sent[-1] == "14 63 00 10 10 02 FD"

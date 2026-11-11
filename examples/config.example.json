@@ -1,0 +1,39 @@
+{
+  "default_device": "ir",
+  "language": "auto",
+  "delay_between_buttons": 0.5,
+  "cloud": {
+    "region": "eu",
+    "key": "YOUR_ACCESS_ID",
+    "secret": "YOUR_ACCESS_SECRET"
+  },
+  "devices": {
+    "ir": {
+      "id": "DEVICE_ID",
+      "ip": "192.168.1.50",
+      "key": "LOCAL_KEY",
+      "version": 3.5,
+      "control_type": 2
+    }
+  },
+  "ac": {
+    "device": "ir",
+    "protocol": "fujitsu",
+    "remote_id": 0,
+    "variant": "A",
+    "panel_commands": ["powerful", "swing", "airflow", "airflow_h"]
+  },
+  "panel_buttons": [],
+  "hotkeys": {
+    "ctrl+alt+a": "@panel",
+    "ctrl+alt+i": "ac on",
+    "ctrl+alt+o": "ac off",
+    "ctrl+alt+p": "ac cmd powerful",
+    "ctrl+alt+s": "ac cmd swing",
+    "ctrl+alt+d": "ac cmd airflow",
+    "ctrl+alt+h": "ac cmd airflow_h",
+    "ctrl+alt+up": "ac temp +1",
+    "ctrl+alt+down": "ac temp -1"
+  },
+  "buttons": {}
+}
