@@ -7,6 +7,7 @@ Wi-Fi IR blaster**, **locally on your network** — no Alexa, no IFTTT, no delay
   fan, swing, powerful…), and TVs, lights, fans, receivers… get a layout for their type
 - **PC hotkeys** (Windows / AutoHotkey) that work inside games, with any keyboard language
 - **Command line** for scripts and automation: `tuyair ac on`, `tuyair ac temp +1`, `tuyair send tv_power`
+- **Lost the remote?** `tuyair remote discover` finds the device's codes by itself (NEC: most TVs and monitors)
 - **Learn** buttons from your remote — locally, or through the Tuya cloud for blasters that won't report locally
 - **Any AC brand**: full control (on/off, mode, temperature, fan) of every air conditioner the
   Smart Life app supports, through the Tuya cloud — or **locally and instantly** for Fujitsu / General /
@@ -103,6 +104,26 @@ learning and remembers that, so the next keys go straight there.
 
 Single saved buttons still work too: `tuyair learn NAME`, `tuyair send NAME`, `tuyair list`.
 
+### Lost the remote? Discover the codes
+
+Most TVs, monitors and boxes (especially generic / white-label brands) use the **NEC** protocol.
+`discover` finds your device's codes without the original remote:
+
+```
+tuyair remote discover tv
+```
+1. **Address**: it sends test commands to groups of addresses and asks whether the device reacted
+   (a number, volume bar, menu, input list, switching off…). A group that reacts is halved until one
+   address is left — usually a few minutes.
+2. **Commands**: it sends each command of that address; you type what happened (`power`, `vol_up`,
+   `menu`, `num_1`, `input`… or any name), or just Enter if nothing did. `r` = send again, `b` = back,
+   `q` = stop. Progress is saved — run the same command to continue.
+
+Every labelled command becomes a key of the remote (window tab, hotkeys, `remote press`).
+Already know a code? `tuyair remote add-code tv mute --nec 0x04 0x0D` (or `--code BASE64_OR_HEX`).
+A sign your device is NEC: a remote of another brand in the Smart Life app makes it react, but the
+buttons do the wrong things.
+
 ## Hotkeys (Windows)
 
 Edit the `"hotkeys"` section of `config.json` (see [examples/config.example.json](examples/config.example.json)), then:
@@ -163,6 +184,7 @@ MIT
 - **اختصارات كيبورد على ويندوز:** تشتغل داخل الألعاب، ومع أي لغة كيبورد.
 - **أوامر سطر الأوامر:** مثل `tuyair ac on` و`tuyair ac temp +1`.
 - **نافذة لكل جهاز:** تلفزيون أو إضاءة أو مروحة أو غيرها، بترتيب أزرار يناسب نوع الجهاز.
+- **اكتشاف أكواد جهاز ضاع ريموته:** يشتغل مع أغلب الشاشات والتلفزيونات، خصوصاً الماركات الصينية.
 - **تعلّم الأزرار:** محلياً، أو عن طريق السحابة إذا كان جهازك ما يرسل الأكواد اللي يتعلّمها محلياً.
 - **التحكم الكامل بأي مكيف يدعمه Smart Life:** التشغيل والحرارة والوضع والمروحة، عن طريق السحابة.
 - **التحكم المحلي الفوري لمكيفات Fujitsu وGeneral وO General:** مع **معايرة** على ريموتك إذا ما اشتغلت الأكواد العامة.
@@ -187,6 +209,7 @@ MIT
 - **تغيير الحرارة:** `tuyair ac temp +1`
 - **فتح النافذة:** `tuyair panel` (نفس الأمر يسكّرها)
 - **الاختصارات:** `tuyair hotkeys --startup` (تشتغل تلقائياً مع ويندوز)
+- **ضيّعت الريموت؟** أمر `tuyair remote discover tv` يكتشف أكواد الجهاز بنفسه: يدوّر على العنوان، وبعدها يرسل الأوامر وحدة وحدة، وإنت تكتب له وش صار مع كل أمر. ويقدر يكمل من وين وقفت.
 - **إضافة تلفزيون:** `tuyair remote add tv --template tv`، وبعدها `tuyair remote learn tv` يمشي معك على الأزرار واحد واحد.
 - **أنواع الأجهزة المتاحة:** تلفزيون، إضاءة، مروحة، صوتيات، جهاز استقبال، بروجكتر، أو مخصص. وكل جهاز له تبويب في النافذة.
 

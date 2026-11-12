@@ -230,3 +230,49 @@ def test_hotkey_remote_action(tmp_path):
     path.write_text(json.dumps({"devices": {"ir": {"id": "x", "key": "y"}},
                                 "hotkeys": {"ctrl+alt+v": "remote tv vol_up"}}))
     assert '^!vk56:: Tuyair("remote press tv vol_up"' in build_script(Config(path))
+
+
+def test_nec_roundtrip():
+    from tuyair.protocols import nec
+    assert nec.frame_bytes(0x04, 0x08) == [0x04, 0xFB, 0x08, 0xF7]
+    assert nec.decode(nec.pulses(0x04, 0x08)) == (0x04, 0x08)
+    assert nec.decode(nec.pulses(0x1234, 0x12)) == (0x1234, 0x12)       # extended address
+    assert nec.decode([3000, 1500] + [400, 400] * 40) is None
+
+
+def test_find_address_narrows_to_one():
+    from tuyair import discover as X
+    from tuyair.protocols import nec
+    target = 0x5A
+    batch = []
+
+    def send(c):
+        batch.append(nec.decode(codes.to_pulses(c))[0])
+
+    def answer(prompt):
+        reacted = target in batch
+        batch.clear()
+        return "y" if reacted else ""
+
+    found = X.find_address(send, X.Asker(answer), say=lambda *a: None)
+    assert found == target
+
+
+def test_find_address_common_first():
+    from tuyair import discover as X
+    from tuyair.protocols import nec
+    sent = []
+    X.find_address(lambda c: sent.append(nec.decode(codes.to_pulses(c))[0]),
+                   X.Asker(lambda p: "q"), say=lambda *a: None)
+    assert set(sent) == set(X.COMMON_ADDRESSES[:8])            # first group = common addresses
+
+
+def test_map_commands_labels_and_resume():
+    from tuyair import discover as X
+    answers = iter(["", "power", "r", "vol up", "b", "", "q"])
+    saved, progress = {}, []
+    nxt = X.map_commands(lambda c: None, X.Asker(lambda p: next(answers)),
+                         lambda label, cmd: saved.__setitem__(label, cmd), start=0x10, end=0x20,
+                         address=0x01, say=lambda *a: None, on_progress=progress.append)
+    assert saved == {"power": 0x11, "vol_up": 0x12}
+    assert nxt == 0x13 and progress[-1] == 0x13

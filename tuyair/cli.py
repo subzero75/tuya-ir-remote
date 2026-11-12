@@ -140,7 +140,90 @@ def cmd_remote(cfg, a):
         return 0
     if act == "learn":
         return remote_learn(cfg, a)
+    if act == "discover":
+        return remote_discover(cfg, a)
+    if act == "add-code":
+        return remote_add_code(cfg, a)
     raise ValueError(f"Unknown remote action '{act}'")
+
+
+def _ensure_remote(cfg, a):
+    from . import remotes as R
+    if a.name not in R.all_remotes(cfg):
+        R.add(cfg, a.name, a.template or "tv", a.title, a.device)
+        print(f"Created remote '{a.name}' ({a.template or 'tv'}).")
+    return R.get(cfg, a.name)
+
+
+def remote_discover(cfg, a):
+    """Find the codes of a device whose remote is lost (NEC protocol)."""
+    from . import discover as X
+    from . import remotes as R
+    from .codes import pulses_to_base64
+    from .device import Link
+    from .protocols import nec
+    r = _ensure_remote(cfg, a)
+    state = r.setdefault("discover", {"protocol": "nec"})
+    link = Link(cfg, r.get("device"))
+    ask = X.Asker()
+    print("Point the blaster at the device, switch the device on (with its own button if needed) and watch it.")
+    print("Tip: if a test turns it off, that's a reaction too - answer y and switch it back on.")
+
+    address = nec.parse_number(a.address) if a.address else state.get("address")
+    if address is None:
+        address = X.find_address(link.send, ask)
+        if address is None:
+            print("No address found. The device may use another protocol, or need --address (e.g. 0x1234 for a 16-bit NEC address).")
+            return 1
+        state.update(address=address, next=0)
+        cfg.save()
+    else:
+        print(f"Using address {address:#04x}" + (" (saved earlier)" if not a.address else ""))
+        state["address"] = address
+
+    start = nec.parse_number(a.start) if a.start is not None else int(state.get("next", 0))
+    end = nec.parse_number(a.end) if a.end is not None else 0xFF
+    print(f"Learned key ids you can use: {', '.join(list(_keys_hint(r)))} ... or any name.")
+
+    def save_label(label, cmd):
+        R.save_key(cfg, a.name, label, pulses_to_base64(nec.pulses(address, cmd)), f"discover nec {address:#04x} {cmd:#04x}")
+
+    def progress(n):
+        state["next"] = n
+        cfg.save()
+
+    nxt = X.map_commands(link.send, ask, save_label, start, end, address, on_progress=progress)
+    progress(nxt)
+    keys = ", ".join(r.get("keys") or {}) or "none yet"
+    print(f"\nSaved keys: {keys}")
+    if nxt <= end:
+        print(f"Stopped at {nxt:#04x}. Run the same command again to continue.")
+    return 0
+
+
+def _keys_hint(r):
+    from .templates import keys_of
+    return keys_of(r.get("template", "tv"))[:15]
+
+
+def remote_add_code(cfg, a):
+    """Add a key from a known code: --nec ADDRESS COMMAND, or --code BASE64/HEX."""
+    from . import remotes as R
+    from .codes import pulses_to_base64
+    from .protocols import nec
+    if not a.keys:
+        raise ValueError("Usage: tuyair remote add-code NAME KEY (--nec ADDRESS COMMAND | --code CODE)")
+    _ensure_remote(cfg, a)
+    if a.nec:
+        addr, cmd = (nec.parse_number(x) for x in a.nec)
+        code, src = pulses_to_base64(nec.pulses(addr, cmd)), f"nec {addr:#04x} {cmd:#04x}"
+    elif a.code:
+        code, src = a.code, "manual"
+    else:
+        raise ValueError("Give --nec ADDRESS COMMAND or --code CODE")
+    R.save_key(cfg, a.name, a.keys[0], code, src)
+    cfg.log(f"Saved {a.name}.{a.keys[0]} ({src}). Test:  tuyair remote press {a.name} {a.keys[0]}")
+    return 0
 
 
 def remote_learn(cfg, a):
@@ -334,8 +417,10 @@ def build_parser():
     s.add_argument("--cloud", action="store_true", help="calibrate: capture through the cloud")
     s.set_defaults(func=cmd_ac)
 
-    s = sub.add_parser("remote", help="devices with a remote (TV, light, fan...): templates, add, learn, press, list, forget, remove")
-    s.add_argument("action", choices=["templates", "list", "add", "learn", "press", "forget", "remove"])
+    s = sub.add_parser("remote", help="devices with a remote (TV, light, fan...): templates, add, learn, discover, "
+                                      "add-code, press, list, forget, remove")
+    s.add_argument("action", choices=["templates", "list", "add", "learn", "discover", "add-code", "press",
+                                      "forget", "remove"])
     s.add_argument("name", nargs="?")
     s.add_argument("keys", nargs="*", help="press / forget: key ids")
     s.add_argument("--template", help="add: tv, light, fan, audio, box, projector, custom")
@@ -343,6 +428,11 @@ def build_parser():
     s.add_argument("--device", help="add: which blaster sends for this remote")
     s.add_argument("--key", action="append", help="learn: only this key (repeatable; any name for custom keys)")
     s.add_argument("--redo", action="store_true", help="learn: relearn keys that are already learned")
+    s.add_argument("--address", help="discover: skip the search and use this NEC address (e.g. 0x00, 0x7F80)")
+    s.add_argument("--start", help="discover: first command to try (default: where you stopped)")
+    s.add_argument("--end", help="discover: last command to try (default 0xFF)")
+    s.add_argument("--nec", nargs=2, metavar=("ADDRESS", "COMMAND"), help="add-code: NEC address and command")
+    s.add_argument("--code", help="add-code: a raw code (base64 or hex)")
     s.add_argument("--timeout", type=int, default=15)
     g = s.add_mutually_exclusive_group()
     g.add_argument("--cloud", action="store_true")
