@@ -141,6 +141,14 @@ Protocols live in [`tuyair/protocols/`](tuyair/protocols). Implement `full_state
 (and ideally `decode` / `calibrate`) and register it in `get_protocol`. Pull requests welcome —
 include a captured code (`tuyair decode`) so it can be tested.
 
+## Credits
+
+- **[subzero75](https://github.com/subzero75)** — idea, real-device testing, maintainer
+- **Claude (Anthropic)** — co-developer: wrote the code, protocols, tests and documentation
+- Built on [tinytuya](https://github.com/jasonacox/tinytuya) for local Tuya communication.
+  Fujitsu protocol details follow the public work of the
+  [IRremoteESP8266](https://github.com/crankyoldgit/IRremoteESP8266) community.
+
 ## License
 
 MIT
@@ -189,3 +197,8 @@ MIT
 - **مكيف من ماركة ثانية:** في Smart Life أضف ريموت مكيف لجهاز الـ IR واختر ماركتك، وبعدها اختر `tuya-cloud` في `tuyair setup`.
 - **كان شغال ووقف:** تغيّر الـ IP يتحل تلقائياً. أما إذا أعدت ربط الجهاز في التطبيق، فأعد `tuyair setup`.
 - **ملف الإعدادات:** `config.json` فيه مفاتيح سرية. خذ منه نسخة احتياطية، ولا تشاركه مع أحد.
+
+### المطورون
+
+- **صاحب الفكرة والمشرف على المشروع:** [subzero75](https://github.com/subzero75)، وهو اللي اختبره على أجهزة حقيقية.
+- **مطوّر مشارك:** Claude من Anthropic، كتب الكود والبروتوكولات والاختبارات والتوثيق.

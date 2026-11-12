@@ -8,6 +8,10 @@ dynamic = ["version"]
 description = "Control IR devices and air conditioners through a Tuya / Smart Life IR blaster, locally: CLI, control window and PC hotkeys."
 readme = "README.md"
 license = { text = "MIT" }
+authors = [
+    { name = "subzero75" },
+    { name = "Claude (Anthropic)", email = "noreply@anthropic.com" },
+]
 requires-python = ">=3.8"
 dependencies = ["tinytuya>=1.13"]
 keywords = ["tuya", "smart life", "ir", "infrared", "air conditioner", "fujitsu", "o general", "hotkeys"]
