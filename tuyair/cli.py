@@ -348,6 +348,8 @@ def cmd_ac(cfg, a):
         if not a.value:
             raise ValueError("Usage: tuyair ac cmd <" + "|".join(ac.protocol.short_commands) + ">")
         st = ac.command(a.value)
+        cfg.log(f"Sent '{a.value}' (the AC must be on for most commands)")
+        return 0
     elif act == "status":
         st = ac.read_state()
     elif act == "calibrate":
@@ -356,7 +358,7 @@ def cmd_ac(cfg, a):
         return ac_probe(cfg, ac, a)
     else:
         raise ValueError(f"Unknown ac action '{act}'")
-    cfg.log(f"AC: {show_state(st)}")
+    cfg.log(f"Sent. Last known state: {show_state(st)}" if act != "status" else f"Last known state: {show_state(st)}")
     return 0
 
 
@@ -437,7 +439,7 @@ def cmd_hotkeys(cfg, a):
 # ---------------------------------------------------------------- main
 def build_parser():
     p = argparse.ArgumentParser(prog="tuyair", description="Control IR devices and ACs through a Tuya IR blaster, locally.")
-    p.add_argument("--config", help="config.json path (default: ./config.json or your user folder)")
+    p.add_argument("--config", help="config.json path (default: your user folder, or the TUYAIR_CONFIG variable)")
     p.add_argument("--debug", action="store_true", help="print raw device traffic")
     p.add_argument("--version", action="version", version=f"tuyair {__version__}")
     sub = p.add_subparsers(dest="cmd", required=True)

@@ -3,8 +3,7 @@
 Config lookup order:
   1. --config PATH
   2. TUYAIR_CONFIG environment variable
-  3. config.json in the current folder
-  4. the user folder: %APPDATA%\\tuyair (Windows), ~/Library/Application Support/tuyair (macOS),
+  3. the user folder: %APPDATA%\\tuyair (Windows), ~/Library/Application Support/tuyair (macOS),
      $XDG_CONFIG_HOME/tuyair or ~/.config/tuyair (Linux)
 
 The state file (last AC state) and the log live next to the config file.
@@ -35,9 +34,7 @@ def find_config(explicit=None):
         return Path(explicit).expanduser().resolve()
     if os.environ.get("TUYAIR_CONFIG"):
         return Path(os.environ["TUYAIR_CONFIG"]).expanduser().resolve()
-    local = Path.cwd() / "config.json"
-    if local.exists():
-        return local.resolve()
+    # (the current folder is not searched: another program's config.json there would be picked up by mistake)
     return user_dir() / "config.json"
 
 
