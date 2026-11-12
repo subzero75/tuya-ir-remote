@@ -11,7 +11,7 @@ Options (all optional, stored under "ac" in config.json):
 from . import Protocol
 
 DEFAULT_TIMING = {"hdr_mark": 3324, "hdr_space": 1574, "bit_mark": 448,
-                  "one_space": 1182, "zero_space": 390, "gap": 0}
+                  "one_space": 1182, "zero_space": 390, "gap": 8000}
 
 VARIANTS = {
     "A": {"protocol": 0x30, "byte14": 0x20},   # AR-RAH2E / AR-RAJ / AR-REB1E style
@@ -122,4 +122,4 @@ class Fujitsu(Protocol):
         med = lambda v: v[len(v) // 2]
         return {"hdr_mark": pulses[0], "hdr_space": pulses[1], "bit_mark": med(marks),
                 "zero_space": med(zeros), "one_space": med(ones),
-                "gap": pulses[-1] if len(pulses) % 2 == 0 and pulses[-1] >= 3000 else 0}
+                "gap": pulses[-1] if len(pulses) % 2 == 0 and pulses[-1] >= 3000 else DEFAULT_TIMING["gap"]}

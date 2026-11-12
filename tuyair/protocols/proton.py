@@ -5,7 +5,7 @@ Frame: 8 ms mark, 4 ms space, 8-bit device (LSB first), 0.5 ms mark + 4 ms space
 1 = mark, 3 x space.
 """
 
-HDR_MARK, HDR_SPACE, UNIT, MID_SPACE = 8000, 4000, 500, 4000
+HDR_MARK, HDR_SPACE, UNIT, MID_SPACE, GAP = 8000, 4000, 500, 4000, 40000
 
 
 def _bits(byte):
@@ -16,7 +16,7 @@ def _bits(byte):
 
 
 def pulses(address, command):
-    return [HDR_MARK, HDR_SPACE] + _bits(address & 0xFF) + [UNIT, MID_SPACE] + _bits(command & 0xFF) + [UNIT]
+    return [HDR_MARK, HDR_SPACE] + _bits(address & 0xFF) + [UNIT, MID_SPACE] + _bits(command & 0xFF) + [UNIT, GAP]
 
 
 def decode(p):

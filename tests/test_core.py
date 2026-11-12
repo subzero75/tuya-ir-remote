@@ -33,6 +33,15 @@ def test_short_command_and_off():
     assert p.decode(p.off()) == "14 63 00 10 10 02 FD"
 
 
+def test_every_generated_code_ends_with_a_gap():
+    from tuyair.protocols import nec, proton
+    for pulses in (get_protocol("fujitsu").off(), get_protocol("fujitsu").short("powerful"),
+                   get_protocol("fujitsu").full_state({"temp": 24}, True), nec.pulses(1, 2), proton.pulses(20, 3),
+                   [500, 500, 500]):
+        p = codes.to_pulses(codes.pulses_to_base64(pulses))
+        assert len(p) % 2 == 0 and p[-1] >= 3000
+
+
 def test_hex_and_base64_are_the_same_code():
     hx = real_capture_hex()
     b64 = codes.to_base64(hx)
@@ -281,7 +290,7 @@ def test_map_commands_labels_and_resume():
 def test_proton_roundtrip():
     from tuyair.protocols import proton
     p = proton.pulses(20, 0x0B)
-    assert p[:2] == [8000, 4000] and len(p) == 2 + 16 + 2 + 16 + 1
+    assert p[:2] == [8000, 4000] and len(p) == 2 + 16 + 2 + 16 + 2 and p[-1] >= 20000
     assert proton.decode(p) == (20, 0x0B)
     from tuyair.protocols import nec
     assert proton.decode(nec.pulses(1, 2)) is None and nec.decode(p) is None

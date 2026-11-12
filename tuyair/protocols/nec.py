@@ -5,7 +5,7 @@ A frame is: 9 ms mark, 4.5 ms space, 32 bits (LSB first), final mark.
   extended:  address low byte, address high byte, command, ~command   (16-bit address)
 """
 
-HDR_MARK, HDR_SPACE, BIT_MARK, ONE_SPACE, ZERO_SPACE = 9000, 4500, 560, 1690, 560
+HDR_MARK, HDR_SPACE, BIT_MARK, ONE_SPACE, ZERO_SPACE, GAP = 9000, 4500, 560, 1690, 560, 40000
 
 
 def frame_bytes(address, command):
@@ -20,7 +20,7 @@ def pulses(address, command):
     for byte in frame_bytes(address, command):
         for bit in range(8):
             out += [BIT_MARK, ONE_SPACE if (byte >> bit) & 1 else ZERO_SPACE]
-    out.append(BIT_MARK)
+    out += [BIT_MARK, GAP]
     return out
 
 

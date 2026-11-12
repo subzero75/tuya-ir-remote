@@ -14,8 +14,15 @@ import string
 import struct
 
 
+TRAILING_GAP = 20000  # us
+
+
 def pulses_to_base64(pulses):
+    """Pack pulses for the blaster. Real captures always end with a space (the gap after the last
+    mark); codes ending on a mark were not sent reliably, so one is added when missing."""
     pulses = [max(1, min(65535, int(p))) for p in pulses]
+    if len(pulses) % 2:
+        pulses.append(TRAILING_GAP)
     return base64.b64encode(struct.pack("<%dH" % len(pulses), *pulses)).decode("ascii")
 
 
