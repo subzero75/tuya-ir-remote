@@ -144,6 +144,8 @@ def cmd_remote(cfg, a):
         return remote_discover(cfg, a)
     if act == "add-code":
         return remote_add_code(cfg, a)
+    if act == "cloud-map":
+        return remote_cloud_map(cfg, a)
     raise ValueError(f"Unknown remote action '{act}'")
 
 
@@ -204,6 +206,57 @@ def remote_discover(cfg, a):
     print(f"\nSaved keys: {keys}")
     if nxt <= end:
         print(f"Stopped at {nxt:#04x}. Run the same command again to continue.")
+    return 0
+
+
+def remote_cloud_map(cfg, a):
+    """Use a Smart Life remote that makes the device react, and name what each of its keys really does."""
+    from . import discover as X
+    from . import remotes as R
+    r = _ensure_remote(cfg, a)
+    dev = cfg.device(r.get("device"))
+    remotes = R.cloud_remotes(cfg, dev["id"])
+    if not remotes:
+        print("No remotes found for this blaster in the Smart Life app. Add one there first (e.g. a TV remote of any brand that makes the device react).")
+        return 1
+    for i, rm in enumerate(remotes, 1):
+        print(f"  {i}. {rm.get('remote_name') or rm.get('name')}  (category {rm.get('category_id')}, brand {rm.get('brand_name', '?')}, id {rm.get('remote_id')})")
+    pick = remotes[int(input("Which Smart Life remote makes your device react? Number [1]: ").strip() or 1) - 1]
+    remote_id = pick.get("remote_id")
+    category, keys = R.cloud_keys(cfg, dev["id"], remote_id)
+    category = category or pick.get("category_id")
+    if not keys:
+        print("That remote has no keys the cloud can list.")
+        return 1
+    done = r.setdefault("cloud_map", {}).setdefault(remote_id, [])
+    todo = [k for k in keys if str(k.get("key_id", k.get("key"))) not in done]
+    print(f"\n{len(todo)} key(s) to try. Watch the device. For each: type what it REALLY did (power, vol_up, menu, num_1, input...),")
+    print("Enter = nothing, r = send again, q = stop (progress is saved).")
+    ask = X.Asker()
+    i = 0
+    while i < len(todo):
+        k = todo[i]
+        ref = {"remote_id": remote_id, "category_id": category, "key": k.get("key"), "key_id": k.get("key_id")}
+        try:
+            R.send_cloud_key(cfg, dev["id"], ref)
+        except D.DeviceError as e:
+            print(f"  {e}")
+            return 1
+        answer = ask(f"[{k.get('key_name') or k.get('key')}] what happened? ")
+        if answer == "q":
+            break
+        if answer == "r":
+            continue
+        if answer:
+            label = answer.replace(" ", "_")
+            r.setdefault("keys", {})[label] = {"cloud": ref, "source": f"cloud-map {pick.get('remote_name', remote_id)}"}
+            print(f"  saved {label}")
+        done.append(str(k.get("key_id", k.get("key"))))
+        cfg.save()
+        i += 1
+    print(f"\nSaved keys: {', '.join(r.get('keys') or {}) or 'none yet'}")
+    if i < len(todo):
+        print("Run the same command again to continue.")
     return 0
 
 
@@ -426,9 +479,9 @@ def build_parser():
     s.set_defaults(func=cmd_ac)
 
     s = sub.add_parser("remote", help="devices with a remote (TV, light, fan...): templates, add, learn, discover, "
-                                      "add-code, press, list, forget, remove")
-    s.add_argument("action", choices=["templates", "list", "add", "learn", "discover", "add-code", "press",
-                                      "forget", "remove"])
+                                      "cloud-map, add-code, press, list, forget, remove")
+    s.add_argument("action", choices=["templates", "list", "add", "learn", "discover", "cloud-map", "add-code",
+                                      "press", "forget", "remove"])
     s.add_argument("name", nargs="?")
     s.add_argument("keys", nargs="*", help="press / forget: key ids")
     s.add_argument("--template", help="add: tv, light, fan, audio, box, projector, custom")

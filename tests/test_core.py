@@ -301,3 +301,30 @@ def test_find_address_proton_tries_daewoo_device_first():
         return "y" if reacted else ""
 
     assert X.find_address(send, X.Asker(answer), say=lambda *a: None, protocol="proton") == 20
+
+
+def test_cloud_map_keys_are_sent_through_the_cloud(tmp_path, monkeypatch):
+    from tuyair import remotes as R
+    calls = []
+
+    class FakeCloud:
+        def cloudrequest(self, url, action=None, post=None, query=None):
+            calls.append((url, action, post))
+            if url.endswith("/remotes/r1/command"):
+                return {"success": False, "code": 1108, "msg": "uri path invalid"}
+            return {"success": True, "result": True}
+
+    monkeypatch.setattr(R, "cloud_client", lambda cloud_cfg, device_id=None: FakeCloud())
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"devices": {"ir": {"id": "IR1", "key": "y"}}, "cloud": {"key": "k", "secret": "s"}}))
+    cfg = Config(path)
+    monkeypatch.setattr(cfg, "log", lambda m: None)
+    R.add(cfg, "magic", "tv")
+    ref = {"remote_id": "r1", "category_id": 2, "key": "Power", "key_id": 1}
+    cfg.data["remotes"]["magic"]["keys"]["vol_up"] = {"cloud": ref}
+    R.press(cfg, "magic", ["vol_up"])
+    assert calls[0] == ("/v2.0/infrareds/IR1/remotes/r1/command", "POST", {"category_id": 2, "key_id": 1, "key": "Power"})
+    assert calls[1][0] == "/v2.0/infrareds/IR1/remotes/r1/raw/command" and ref["path"].endswith("raw/command")
+    calls.clear()
+    R.press(cfg, "magic", ["vol_up"])                         # remembered path: one call only
+    assert len(calls) == 1

@@ -123,6 +123,15 @@ Every labelled command becomes a key of the remote (window tab, hotkeys, `remote
 Nothing reacts with NEC? Try `--protocol proton`. If a **Daewoo** remote in the Smart Life app makes
 your device react but with the wrong functions, go straight to `--protocol proton --address 20`
 (Daewoo's Proton device number) and only the commands need mapping.
+**Easiest when the brand is unknown:** if *any* remote in the Smart Life app makes the device react,
+even with the wrong functions, map it instead of guessing protocols:
+```
+tuyair remote cloud-map tv
+```
+It presses each key of that Smart Life remote through the cloud and you type what really happened
+(`power`, `vol_up`…). Those keys then appear with the right names (needs internet and the
+*IR Control Hub Open Service* authorization).
+
 Already know a code? `tuyair remote add-code tv mute --nec 0x04 0x0D` (or `--proton 20 0x0D`, or `--code BASE64_OR_HEX`).
 
 ## Hotkeys (Windows)
@@ -211,7 +220,8 @@ MIT
 - **فتح النافذة:** `tuyair panel` (نفس الأمر يسكّرها)
 - **الاختصارات:** `tuyair hotkeys --startup` (تشتغل تلقائياً مع ويندوز)
 - **ضيّعت الريموت؟** أمر `tuyair remote discover tv` يكتشف أكواد الجهاز بنفسه: يدوّر على العنوان، وبعدها يرسل الأوامر وحدة وحدة، وإنت تكتب له وش صار مع كل أمر. ويقدر يكمل من وين وقفت.
-- **إذا ما استجاب الجهاز:** جرّب `--protocol proton`. وإذا كان ريموت Daewoo في Smart Life يخلي جهازك يستجيب، استخدم `--protocol proton --address 20` على طول.
+- **أسهل طريقة إذا ماركة جهازك مو معروفة:** إذا فيه أي ريموت في Smart Life يخلي جهازك يستجيب، حتى لو بوظائف غلط، استخدم `tuyair remote cloud-map tv`. البرنامج يضغط أزرار هالريموت وحدة وحدة، وإنت تكتب وش صار فعلاً، فتصير عندك الأزرار بأسمائها الصحيحة.
+- **إذا ما استجاب الجهاز للاكتشاف:** جرّب `--protocol proton`. وإذا كان ريموت Daewoo في Smart Life يخلي جهازك يستجيب، استخدم `--protocol proton --address 20` على طول.
 - **إضافة تلفزيون:** `tuyair remote add tv --template tv`، وبعدها `tuyair remote learn tv` يمشي معك على الأزرار واحد واحد.
 - **أنواع الأجهزة المتاحة:** تلفزيون، إضاءة، مروحة، صوتيات، جهاز استقبال، بروجكتر، أو مخصص. وكل جهاز له تبويب في النافذة.
 
