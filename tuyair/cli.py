@@ -32,6 +32,8 @@ def learn_code(cfg, name, device=None, method="auto", timeout=15):
     dev_name = cfg.device_name(device)
     dev = cfg.device(dev_name)
     code = None
+    if method == "auto" and dev.get("learn_method") == "cloud" and cfg.get("cloud"):
+        method = "cloud"   # this blaster was seen to report learned codes only to the cloud
     if method in ("auto", "local"):
         print(f"Point the remote at the blaster (5-10 cm) and press '{name}' within {timeout} s...")
         code = D.learn_local(D.open_local(dev), timeout)
@@ -44,6 +46,10 @@ def learn_code(cfg, name, device=None, method="auto", timeout=15):
     if not code and method in ("auto", "cloud") and (cfg.get("cloud") or method == "cloud"):
         code = D.learn_cloud(cfg.get("cloud"), dev["id"], timeout=max(timeout, 30),
                              on_ready=lambda: print(f"Press '{name}' now (30 s)..."))
+        if code and method == "auto" and dev.get("learn_method") != "cloud":
+            dev["learn_method"] = "cloud"
+            cfg.save()
+            print("(Remembered: this blaster learns through the cloud; next time it goes straight there.)")
     return dev_name, code
 
 
@@ -88,6 +94,81 @@ def cmd_decode(cfg, a):
     print(f"{len(pulses)} pulses, first: {pulses[:6]}")
     proto = get_protocol((cfg.get("ac") or {}).get("protocol", "fujitsu"), cfg.get("ac") or {})
     print(f"{proto.title} bytes: {proto.decode(pulses) or '(not this protocol)'}")
+    return 0
+
+
+# ---------------------------------------------------------------- remotes
+def cmd_remote(cfg, a):
+    from . import remotes as R
+    from .templates import TEMPLATES, keys_of
+    act = a.action
+    if act == "templates":
+        for name, rows in TEMPLATES.items():
+            print(f"{name:10} {', '.join(keys_of(name)) or '(add your own keys with --key)'}")
+        return 0
+    if act == "list":
+        rs = R.all_remotes(cfg)
+        if not rs:
+            print("No remotes. Add one:  tuyair remote add tv --template tv")
+        for name, r in rs.items():
+            keys = ", ".join(r.get("keys") or {}) or "-"
+            print(f"{name:14} {r.get('template'):10} device={r.get('device')}  keys: {keys}")
+        return 0
+    if not a.name:
+        raise ValueError(f"Usage: tuyair remote {act} NAME ...")
+    if act == "add":
+        R.add(cfg, a.name, a.template or "custom", a.title, a.device)
+        cfg.log(f"Added remote '{a.name}'. Now learn its buttons:  tuyair remote learn {a.name}")
+        return 0
+    if act == "remove":
+        if R.all_remotes(cfg).pop(a.name, None) is None:
+            raise KeyError(f"No remote named '{a.name}'.")
+        cfg.save()
+        cfg.log(f"Removed remote '{a.name}'.")
+        return 0
+    if act == "press":
+        if not a.keys:
+            raise ValueError(f"Usage: tuyair remote press {a.name} KEY [KEY ...]")
+        R.press(cfg, a.name, a.keys)
+        return 0
+    if act == "forget":
+        r = R.get(cfg, a.name)
+        for k in a.keys:
+            (r.get("keys") or {}).pop(k, None)
+        cfg.save()
+        cfg.log(f"Forgot {', '.join(a.keys)} on '{a.name}'.")
+        return 0
+    if act == "learn":
+        return remote_learn(cfg, a)
+    raise ValueError(f"Unknown remote action '{act}'")
+
+
+def remote_learn(cfg, a):
+    """Walk through the template's keys (or the ones given with --key) and learn each."""
+    from . import remotes as R
+    from .i18n import texts
+    from .templates import keys_of
+    r = R.get(cfg, a.name)
+    labels = texts("en")["keys"]
+    todo = list(a.key or []) or [k for k in keys_of(r.get("template")) if a.redo or k not in (r.get("keys") or {})]
+    if not todo:
+        print("Nothing to learn. Add a custom key with --key NAME, or relearn everything with --redo.")
+        return 0
+    method = "cloud" if a.cloud else "local" if a.local else "auto"
+    print(f"Learning {len(todo)} key(s) for '{a.name}'. For each: Enter = learn, s = skip, q = stop.")
+    for key in todo:
+        ans = input(f"\n[{key}] {labels.get(key, key)} - ready? ").strip().lower()
+        if ans == "q":
+            break
+        if ans == "s":
+            continue
+        _, code = learn_code(cfg, key, r.get("device"), method, a.timeout)
+        if code:
+            R.save_key(cfg, a.name, key, code, f"learn ({method})")
+            print(f"  saved {key}")
+        else:
+            print("  nothing received, skipped (run again later for the missing keys)")
+    cfg.log(f"Remote '{a.name}' keys: {', '.join((r.get('keys') or {}))}")
     return 0
 
 
@@ -252,6 +333,21 @@ def build_parser():
     s.add_argument("--swing")
     s.add_argument("--cloud", action="store_true", help="calibrate: capture through the cloud")
     s.set_defaults(func=cmd_ac)
+
+    s = sub.add_parser("remote", help="devices with a remote (TV, light, fan...): templates, add, learn, press, list, forget, remove")
+    s.add_argument("action", choices=["templates", "list", "add", "learn", "press", "forget", "remove"])
+    s.add_argument("name", nargs="?")
+    s.add_argument("keys", nargs="*", help="press / forget: key ids")
+    s.add_argument("--template", help="add: tv, light, fan, audio, box, projector, custom")
+    s.add_argument("--title", help="add: name shown in the window")
+    s.add_argument("--device", help="add: which blaster sends for this remote")
+    s.add_argument("--key", action="append", help="learn: only this key (repeatable; any name for custom keys)")
+    s.add_argument("--redo", action="store_true", help="learn: relearn keys that are already learned")
+    s.add_argument("--timeout", type=int, default=15)
+    g = s.add_mutually_exclusive_group()
+    g.add_argument("--cloud", action="store_true")
+    g.add_argument("--local", action="store_true")
+    s.set_defaults(func=cmd_remote)
 
     sub.add_parser("panel", help="open / close the control window").set_defaults(func=cmd_panel)
     s = sub.add_parser("hotkeys", help="write an AutoHotkey v2 script from the config (Windows)")

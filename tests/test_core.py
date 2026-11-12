@@ -174,3 +174,59 @@ def test_link_does_not_retry_on_other_errors(tmp_path, monkeypatch):
     monkeypatch.setattr(D, "find_on_network", lambda dev_id: pytest.fail("should not search"))
     with pytest.raises(D.DeviceError):
         D.Link(Config(path), "ir").send("AAAA")
+
+
+def test_templates_layout_shows_only_learned_keys():
+    from tuyair.templates import TEMPLATES, keys_of, layout
+    assert "vol_up" in keys_of("tv") and keys_of("custom") == []
+    rows = layout("tv", ["power", "vol_up", "ok", "my_extra"])
+    assert rows[0] == ["power", None, None]
+    assert ["vol_up", None, None] in rows and [None, "ok", None] in rows
+    assert rows[-1] == ["my_extra", None, None]                    # custom keys go at the end
+    assert all(len(r) == 3 for t in TEMPLATES.values() for r in t)
+
+
+def test_every_template_key_has_a_label():
+    from tuyair.i18n import TEXTS
+    from tuyair.templates import TEMPLATES, keys_of
+    for lang, t in TEXTS.items():
+        for name in TEMPLATES:
+            assert name in t["templates"], (lang, name)
+    for name in TEMPLATES:
+        for k in keys_of(name):
+            assert k in TEXTS["en"]["keys"], k
+
+
+def test_remote_add_save_press(tmp_path, monkeypatch):
+    from tuyair import device as D
+    from tuyair import remotes as R
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"devices": {"ir": {"id": "x", "key": "y", "ip": "1.1.1.1"}}}))
+    cfg = Config(path)
+    R.add(cfg, "tv", "tv", "Living room TV")
+    with pytest.raises(ValueError):
+        R.add(cfg, "tv", "tv")
+    with pytest.raises(ValueError):
+        R.add(cfg, "x", "toaster")
+    R.save_key(cfg, "tv", "power", codes.pulses_to_base64([1, 2, 3]))
+    sent = []
+
+    class Handle:
+        def send_button(self, code):
+            sent.append(code)
+
+    monkeypatch.setattr(D, "open_local", lambda dev: Handle())
+    monkeypatch.setattr(cfg, "log", lambda m: None)
+    R.press(cfg, "tv", ["power"])
+    assert sent == [codes.pulses_to_base64([1, 2, 3])]
+    with pytest.raises(KeyError):
+        R.press(cfg, "tv", ["vol_up"])
+    saved = json.loads(path.read_text())["remotes"]["tv"]
+    assert saved["title"] == "Living room TV" and "power" in saved["keys"]
+
+
+def test_hotkey_remote_action(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"devices": {"ir": {"id": "x", "key": "y"}},
+                                "hotkeys": {"ctrl+alt+v": "remote tv vol_up"}}))
+    assert '^!vk56:: Tuyair("remote press tv vol_up"' in build_script(Config(path))

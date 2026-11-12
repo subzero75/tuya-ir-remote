@@ -4,6 +4,7 @@ Actions:
   "@panel"            open / close the control window
   "ac on" "ac off" "ac toggle"
   "ac temp +1"  "ac temp -1"  "ac mode next"  "ac fan next"  "ac cmd powerful" ...
+  "remote tv vol_up"  a key of a remote (several keys = sent in order)
   "tv_power"          any saved button name (several names = sent in order)
 
 Keys are written like "ctrl+alt+a", "ctrl+shift+f5", "win+alt+1". Letters and digits
@@ -97,6 +98,8 @@ def build_script(cfg):
             args = "panel"
         elif action.startswith("ac "):
             args = action
+        elif action.startswith("remote "):
+            args = "remote press " + action[len("remote "):]
         else:
             args = "send " + action
         lines.append(f"{key}:: Tuyair({ahk_string(args)}, {ahk_string(action)})   ; {combo}")

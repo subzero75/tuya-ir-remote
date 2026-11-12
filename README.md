@@ -3,7 +3,8 @@
 Control your air conditioner (or TV, fan, anything with an IR remote) through a **Tuya / Smart Life
 Wi-Fi IR blaster**, **locally on your network** — no Alexa, no IFTTT, no delay.
 
-- **Control window** that looks like the remote's screen (mode, temperature, fan, swing, powerful…)
+- **Control window** with a tab per device: the AC tab mirrors the remote's screen (mode, temperature,
+  fan, swing, powerful…), and TVs, lights, fans, receivers… get a layout for their type
 - **PC hotkeys** (Windows / AutoHotkey) that work inside games, with any keyboard language
 - **Command line** for scripts and automation: `tuyair ac on`, `tuyair ac temp +1`, `tuyair send tv_power`
 - **Learn** buttons from your remote — locally, or through the Tuya cloud for blasters that won't report locally
@@ -84,16 +85,23 @@ If it still fails, `tuyair ac probe` tries the known model variants one by one.
 IR is one-way: the window shows what was **last sent**. If you use the original remote,
 press START/STOP once in the window to resync.
 
-## Any other device (TV, fan, receiver…)
+## TV, light, fan and other devices
+
+Each device gets a **remote** with a layout for its type, and its own tab in the window.
 
 ```
-tuyair learn tv_power              # press the button on your remote when asked
-tuyair send tv_power
-tuyair send tv_power hdmi2         # several, in order
-tuyair list | tuyair delete NAME | tuyair decode NAME
+tuyair remote templates                       # tv, light, fan, audio, box, projector, custom
+tuyair remote add tv --template tv --title "Living room TV"
+tuyair remote learn tv                        # walks through the keys: Enter = learn, s = skip, q = stop
+tuyair remote learn tv --key netflix          # any extra button, with your own name
+tuyair remote press tv vol_up vol_up          # send keys
+tuyair remote list | forget tv KEY | remove tv
 ```
-`learn` tries local learning first and falls back to cloud learning automatically.
-Add saved buttons to the window with `"panel_buttons": ["tv_power", ...]` in `config.json`.
+The window shows only the keys you learned, arranged like the device's remote.
+Learning tries locally first; if your blaster only reports to the cloud it switches to cloud
+learning and remembers that, so the next keys go straight there.
+
+Single saved buttons still work too: `tuyair learn NAME`, `tuyair send NAME`, `tuyair list`.
 
 ## Hotkeys (Windows)
 
@@ -103,7 +111,8 @@ tuyair hotkeys --startup           # writes tuyair.ahk to the Startup folder (ru
 tuyair hotkeys                     # or next to config.json, double-click to start
 ```
 Default keys: **Ctrl+Alt+A** window · **I** on · **O** off · **P** powerful · **S** swing ·
-**D / H** louvers · **Ctrl+Alt+↑/↓** temperature. Actions: `@panel`, `ac ...`, or saved button names.
+**D / H** louvers · **Ctrl+Alt+↑/↓** temperature. Actions: `@panel`, `ac ...`, `remote tv vol_up`,
+or saved button names.
 Keys are written as virtual-key codes, so they work with Arabic, English or any other layout.
 If a hotkey does nothing, another program may own it (screenshot tools often take Ctrl+Alt+A) — pick another.
 If hotkeys don't work inside a game, run the `.ahk` as administrator.
@@ -122,7 +131,11 @@ On Linux/macOS, bind the same commands (`tuyair ac on`, `tuyair panel`...) in yo
 | AC turns off but not on | `tuyair ac calibrate` |
 | Window doesn't open from a hotkey | It may already be open: the same hotkey opens and closes it. Errors go to `tuyair.log` next to `config.json`. |
 
-## Adding an AC brand
+## Adding a device type or an AC brand
+
+Device layouts are in [`tuyair/templates.py`](tuyair/templates.py) (a 3-column grid of key ids) and
+their labels in [`tuyair/i18n.py`](tuyair/i18n.py) — adding a type or a language is a few lines.
+
 
 Protocols live in [`tuyair/protocols/`](tuyair/protocols). Implement `full_state`, `off`, `short`
 (and ideally `decode` / `calibrate`) and register it in `get_protocol`. Pull requests welcome —
@@ -141,6 +154,7 @@ MIT
 - **نافذة تحكم صغيرة:** شكلها مثل شاشة الريموت، وفيها الوضع والحرارة والمروحة والتأرجح والقوي.
 - **اختصارات كيبورد على ويندوز:** تشتغل داخل الألعاب، ومع أي لغة كيبورد.
 - **أوامر سطر الأوامر:** مثل `tuyair ac on` و`tuyair ac temp +1`.
+- **نافذة لكل جهاز:** تلفزيون أو إضاءة أو مروحة أو غيرها، بترتيب أزرار يناسب نوع الجهاز.
 - **تعلّم الأزرار:** محلياً، أو عن طريق السحابة إذا كان جهازك ما يرسل الأكواد اللي يتعلّمها محلياً.
 - **التحكم الكامل بأي مكيف يدعمه Smart Life:** التشغيل والحرارة والوضع والمروحة، عن طريق السحابة.
 - **التحكم المحلي الفوري لمكيفات Fujitsu وGeneral وO General:** مع **معايرة** على ريموتك إذا ما اشتغلت الأكواد العامة.
@@ -165,7 +179,8 @@ MIT
 - **تغيير الحرارة:** `tuyair ac temp +1`
 - **فتح النافذة:** `tuyair panel` (نفس الأمر يسكّرها)
 - **الاختصارات:** `tuyair hotkeys --startup` (تشتغل تلقائياً مع ويندوز)
-- **أجهزة ثانية:** `tuyair learn tv_power`، وبعدها `tuyair send tv_power`
+- **إضافة تلفزيون:** `tuyair remote add tv --template tv`، وبعدها `tuyair remote learn tv` يمشي معك على الأزرار واحد واحد.
+- **أنواع الأجهزة المتاحة:** تلفزيون، إضاءة، مروحة، صوتيات، جهاز استقبال، بروجكتر، أو مخصص. وكل جهاز له تبويب في النافذة.
 
 ### مشاكل شائعة
 

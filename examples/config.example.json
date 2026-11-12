@@ -23,6 +23,9 @@
     "variant": "A",
     "panel_commands": ["powerful", "swing", "airflow", "airflow_h"]
   },
+  "remotes": {
+    "tv": {"template": "tv", "title": "Living room TV", "device": "ir", "keys": {}}
+  },
   "panel_buttons": [],
   "hotkeys": {
     "ctrl+alt+a": "@panel",
@@ -33,7 +36,8 @@
     "ctrl+alt+d": "ac cmd airflow",
     "ctrl+alt+h": "ac cmd airflow_h",
     "ctrl+alt+up": "ac temp +1",
-    "ctrl+alt+down": "ac temp -1"
+    "ctrl+alt+down": "ac temp -1",
+    "ctrl+alt+t": "remote tv power"
   },
   "buttons": {}
 }
