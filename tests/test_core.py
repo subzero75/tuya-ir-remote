@@ -276,3 +276,28 @@ def test_map_commands_labels_and_resume():
                          address=0x01, say=lambda *a: None, on_progress=progress.append)
     assert saved == {"power": 0x11, "vol_up": 0x12}
     assert nxt == 0x13 and progress[-1] == 0x13
+
+
+def test_proton_roundtrip():
+    from tuyair.protocols import proton
+    p = proton.pulses(20, 0x0B)
+    assert p[:2] == [8000, 4000] and len(p) == 2 + 16 + 2 + 16 + 1
+    assert proton.decode(p) == (20, 0x0B)
+    from tuyair.protocols import nec
+    assert proton.decode(nec.pulses(1, 2)) is None and nec.decode(p) is None
+
+
+def test_find_address_proton_tries_daewoo_device_first():
+    from tuyair import discover as X
+    from tuyair.protocols import proton
+    batch = []
+
+    def send(c):
+        batch.append(proton.decode(codes.to_pulses(c))[0])
+
+    def answer(prompt):
+        reacted = 20 in batch
+        batch.clear()
+        return "y" if reacted else ""
+
+    assert X.find_address(send, X.Asker(answer), say=lambda *a: None, protocol="proton") == 20

@@ -106,7 +106,7 @@ Single saved buttons still work too: `tuyair learn NAME`, `tuyair send NAME`, `t
 
 ### Lost the remote? Discover the codes
 
-Most TVs, monitors and boxes (especially generic / white-label brands) use the **NEC** protocol.
+Most TVs, monitors and boxes use the **NEC** protocol; Daewoo and many white-label TVs use **Proton**.
 `discover` finds your device's codes without the original remote:
 
 ```
@@ -120,9 +120,10 @@ tuyair remote discover tv
    `q` = stop. Progress is saved — run the same command to continue.
 
 Every labelled command becomes a key of the remote (window tab, hotkeys, `remote press`).
-Already know a code? `tuyair remote add-code tv mute --nec 0x04 0x0D` (or `--code BASE64_OR_HEX`).
-A sign your device is NEC: a remote of another brand in the Smart Life app makes it react, but the
-buttons do the wrong things.
+Nothing reacts with NEC? Try `--protocol proton`. If a **Daewoo** remote in the Smart Life app makes
+your device react but with the wrong functions, go straight to `--protocol proton --address 20`
+(Daewoo's Proton device number) and only the commands need mapping.
+Already know a code? `tuyair remote add-code tv mute --nec 0x04 0x0D` (or `--proton 20 0x0D`, or `--code BASE64_OR_HEX`).
 
 ## Hotkeys (Windows)
 
@@ -210,6 +211,7 @@ MIT
 - **فتح النافذة:** `tuyair panel` (نفس الأمر يسكّرها)
 - **الاختصارات:** `tuyair hotkeys --startup` (تشتغل تلقائياً مع ويندوز)
 - **ضيّعت الريموت؟** أمر `tuyair remote discover tv` يكتشف أكواد الجهاز بنفسه: يدوّر على العنوان، وبعدها يرسل الأوامر وحدة وحدة، وإنت تكتب له وش صار مع كل أمر. ويقدر يكمل من وين وقفت.
+- **إذا ما استجاب الجهاز:** جرّب `--protocol proton`. وإذا كان ريموت Daewoo في Smart Life يخلي جهازك يستجيب، استخدم `--protocol proton --address 20` على طول.
 - **إضافة تلفزيون:** `tuyair remote add tv --template tv`، وبعدها `tuyair remote learn tv` يمشي معك على الأزرار واحد واحد.
 - **أنواع الأجهزة المتاحة:** تلفزيون، إضاءة، مروحة، صوتيات، جهاز استقبال، بروجكتر، أو مخصص. وكل جهاز له تبويب في النافذة.
 

@@ -159,11 +159,15 @@ def remote_discover(cfg, a):
     """Find the codes of a device whose remote is lost (NEC protocol)."""
     from . import discover as X
     from . import remotes as R
-    from .codes import pulses_to_base64
     from .device import Link
     from .protocols import nec
     r = _ensure_remote(cfg, a)
     state = r.setdefault("discover", {"protocol": "nec"})
+    protocol = a.protocol or state.get("protocol", "nec")
+    if protocol != state.get("protocol"):
+        state.clear()                       # different protocol: start over
+        state["protocol"] = protocol
+    print(f"Protocol: {protocol}")
     link = Link(cfg, r.get("device"))
     ask = X.Asker()
     print("Point the blaster at the device, switch the device on (with its own button if needed) and watch it.")
@@ -171,9 +175,11 @@ def remote_discover(cfg, a):
 
     address = nec.parse_number(a.address) if a.address else state.get("address")
     if address is None:
-        address = X.find_address(link.send, ask)
+        address = X.find_address(link.send, ask, protocol=protocol)
         if address is None:
-            print("No address found. The device may use another protocol, or need --address (e.g. 0x1234 for a 16-bit NEC address).")
+            other = "proton" if protocol == "nec" else "nec"
+            print(f"No address found with {protocol}. Try the other protocol:  tuyair remote discover {a.name} --protocol {other}")
+            print("(If a Daewoo remote in the Smart Life app makes the device react, try:  --protocol proton --address 20)")
             return 1
         state.update(address=address, next=0)
         cfg.save()
@@ -186,13 +192,13 @@ def remote_discover(cfg, a):
     print(f"Learned key ids you can use: {', '.join(list(_keys_hint(r)))} ... or any name.")
 
     def save_label(label, cmd):
-        R.save_key(cfg, a.name, label, pulses_to_base64(nec.pulses(address, cmd)), f"discover nec {address:#04x} {cmd:#04x}")
+        R.save_key(cfg, a.name, label, X.code(address, cmd, protocol), f"discover {protocol} {address:#04x} {cmd:#04x}")
 
     def progress(n):
         state["next"] = n
         cfg.save()
 
-    nxt = X.map_commands(link.send, ask, save_label, start, end, address, on_progress=progress)
+    nxt = X.map_commands(link.send, ask, save_label, start, end, address, on_progress=progress, protocol=protocol)
     progress(nxt)
     keys = ", ".join(r.get("keys") or {}) or "none yet"
     print(f"\nSaved keys: {keys}")
@@ -214,13 +220,15 @@ def remote_add_code(cfg, a):
     if not a.keys:
         raise ValueError("Usage: tuyair remote add-code NAME KEY (--nec ADDRESS COMMAND | --code CODE)")
     _ensure_remote(cfg, a)
-    if a.nec:
-        addr, cmd = (nec.parse_number(x) for x in a.nec)
-        code, src = pulses_to_base64(nec.pulses(addr, cmd)), f"nec {addr:#04x} {cmd:#04x}"
+    if a.nec or a.proton:
+        from .protocols import proton
+        proto, mod, vals = ("nec", nec, a.nec) if a.nec else ("proton", proton, a.proton)
+        addr, cmd = (nec.parse_number(x) for x in vals)
+        code, src = pulses_to_base64(mod.pulses(addr, cmd)), f"{proto} {addr:#04x} {cmd:#04x}"
     elif a.code:
         code, src = a.code, "manual"
     else:
-        raise ValueError("Give --nec ADDRESS COMMAND or --code CODE")
+        raise ValueError("Give --nec ADDRESS COMMAND, --proton DEVICE COMMAND or --code CODE")
     R.save_key(cfg, a.name, a.keys[0], code, src)
     cfg.log(f"Saved {a.name}.{a.keys[0]} ({src}). Test:  tuyair remote press {a.name} {a.keys[0]}")
     return 0
@@ -431,7 +439,9 @@ def build_parser():
     s.add_argument("--address", help="discover: skip the search and use this NEC address (e.g. 0x00, 0x7F80)")
     s.add_argument("--start", help="discover: first command to try (default: where you stopped)")
     s.add_argument("--end", help="discover: last command to try (default 0xFF)")
+    s.add_argument("--protocol", choices=["nec", "proton"], help="discover: IR protocol (default nec)")
     s.add_argument("--nec", nargs=2, metavar=("ADDRESS", "COMMAND"), help="add-code: NEC address and command")
+    s.add_argument("--proton", nargs=2, metavar=("DEVICE", "COMMAND"), help="add-code: Proton device and command")
     s.add_argument("--code", help="add-code: a raw code (base64 or hex)")
     s.add_argument("--timeout", type=int, default=15)
     g = s.add_mutually_exclusive_group()
