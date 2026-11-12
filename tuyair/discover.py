@@ -11,7 +11,7 @@ Step 2 - commands: send each command of that address and let the user say what h
 Progress is saved after every answer, so it can be stopped and resumed.
 The functions take `send(code)` and `ask(prompt)` callables, so they are easy to test.
 """
-from .codes import pulses_to_base64
+from .codes import adjust, pulses_to_base64
 from .protocols import nec, proton
 
 PROTOCOLS = {"nec": nec, "proton": proton}
@@ -29,8 +29,11 @@ PROBE_COMMANDS = [0x02, 0x0C, 0x12, 0x1A, 0x40, 0x45]
 YES = ("y", "yes", "ن", "نعم")
 
 
+FIX = {}   # blaster timing compensation, set by the caller (see codes.adjust)
+
+
 def code(address, command, protocol="nec"):
-    return pulses_to_base64(PROTOCOLS[protocol].pulses(address, command))
+    return pulses_to_base64(adjust(PROTOCOLS[protocol].pulses(address, command), FIX))
 
 
 def address_groups(size=16, protocol="nec"):

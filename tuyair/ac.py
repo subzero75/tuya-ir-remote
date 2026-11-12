@@ -5,7 +5,7 @@ the hotkeys and the panel through ac_state.json next to the config file.
 """
 import json
 
-from .codes import pulses_to_base64
+from .codes import adjust, pulses_to_base64
 from .device import Link
 from .config import write_json_atomic
 from .protocols import get_protocol
@@ -46,7 +46,8 @@ class AC:
         return self._link
 
     def send_pulses(self, pulses):
-        self.link.send(pulses_to_base64(pulses))
+        fix = self.cfg.device(self.opts.get("device")).get("timing_fix")
+        self.link.send(pulses_to_base64(adjust(pulses, fix)))
 
     def _send_state(self, st, power_on):
         if self.protocol.is_cloud:

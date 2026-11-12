@@ -26,6 +26,16 @@ def pulses_to_base64(pulses):
     return base64.b64encode(struct.pack("<%dH" % len(pulses), *pulses)).decode("ascii")
 
 
+def adjust(pulses, fix=None):
+    """Compensate a blaster that stretches or shortens what it sends: add fix["mark"] us to every
+    mark and fix["space"] us to every space. Used only for generated codes (learned codes already
+    carry the blaster's own timing)."""
+    if not fix:
+        return list(pulses)
+    m, s = int(fix.get("mark", 0)), int(fix.get("space", 0))
+    return [max(50, p + (m if i % 2 == 0 else s)) for i, p in enumerate(pulses)]
+
+
 def is_hex_code(code):
     c = code.strip()
     return len(c) >= 8 and len(c) % 4 == 0 and all(ch in string.hexdigits for ch in c)

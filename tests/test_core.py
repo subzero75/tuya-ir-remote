@@ -337,3 +337,20 @@ def test_cloud_map_keys_are_sent_through_the_cloud(tmp_path, monkeypatch):
     calls.clear()
     R.press(cfg, "magic", ["vol_up"])                         # remembered path: one call only
     assert len(calls) == 1
+
+
+def test_timing_fix_shifts_marks_and_spaces():
+    assert codes.adjust([3324, 1574, 448, 390, 448], {"mark": -57, "space": 50}) == [3267, 1624, 391, 440, 391]
+    assert codes.adjust([100, 200]) == [100, 200]
+
+
+def test_ac_uses_device_timing_fix(tmp_path, monkeypatch):
+    from tuyair.ac import AC
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"devices": {"ir": {"id": "x", "key": "y", "timing_fix": {"mark": -57, "space": 50}}},
+                                "ac": {"protocol": "fujitsu"}}))
+    ac = AC(Config(path))
+    sent = []
+    monkeypatch.setattr(ac, "_link", type("L", (), {"send": lambda self, c: sent.append(codes.to_pulses(c))})())
+    ac.command("powerful")
+    assert sent[0][:4] == [3324 - 57, 1574 + 50, 448 - 57, 390 + 50]

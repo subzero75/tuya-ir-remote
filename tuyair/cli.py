@@ -171,6 +171,8 @@ def remote_discover(cfg, a):
         state["protocol"] = protocol
     print(f"Protocol: {protocol}")
     link = Link(cfg, r.get("device"))
+    X.FIX.clear()
+    X.FIX.update(cfg.device(r.get("device")).get("timing_fix") or {})
     ask = X.Asker()
     print("Point the blaster at the device, switch the device on (with its own button if needed) and watch it.")
     print("Tip: if a test turns it off, that's a reaction too - answer y and switch it back on.")
@@ -277,7 +279,9 @@ def remote_add_code(cfg, a):
         from .protocols import proton
         proto, mod, vals = ("nec", nec, a.nec) if a.nec else ("proton", proton, a.proton)
         addr, cmd = (nec.parse_number(x) for x in vals)
-        code, src = pulses_to_base64(mod.pulses(addr, cmd)), f"{proto} {addr:#04x} {cmd:#04x}"
+        from .codes import adjust
+        fix = cfg.device(R.get(cfg, a.name).get("device")).get("timing_fix")
+        code, src = pulses_to_base64(adjust(mod.pulses(addr, cmd), fix)), f"{proto} {addr:#04x} {cmd:#04x}"
     elif a.code:
         code, src = a.code, "manual"
     else:
@@ -380,6 +384,12 @@ def ac_calibrate(cfg, ac, a):
     timing = ac.protocol.calibrate(pulses)
     print(f"Captured bytes: {ac.protocol.decode(pulses)}")
     cfg.data["ac"]["timing"] = timing
+    if ac.protocol.name == "fujitsu":
+        from .protocols.fujitsu import DEFAULT_TIMING as T0
+        fix = {"mark": timing["bit_mark"] - T0["bit_mark"],
+               "space": round(((timing["zero_space"] - T0["zero_space"]) + (timing["one_space"] - T0["one_space"])) / 2)}
+        cfg.device(ac.opts.get("device"))["timing_fix"] = fix
+        print(f"Blaster timing fix (used for every generated code, e.g. discover): {fix}")
     cfg.save()
     cfg.log(f"Calibrated timings: {timing}. Try:  tuyair ac on")
     return 0
@@ -408,6 +418,27 @@ def ac_probe(cfg, ac, a):
             return 0
     print("No variant worked. Try:  tuyair ac calibrate   (captures your real remote)")
     return 1
+
+
+def cmd_fix(cfg, a):
+    """Show or set the blaster's timing compensation for generated codes."""
+    name = cfg.device_name(a.device)
+    dev = cfg.device(name)
+    if a.clear:
+        dev.pop("timing_fix", None)
+    elif a.mark is not None or a.space is not None:
+        fix = dict(dev.get("timing_fix") or {})
+        if a.mark is not None:
+            fix["mark"] = a.mark
+        if a.space is not None:
+            fix["space"] = a.space
+        dev["timing_fix"] = fix
+    else:
+        print(f"[{name}] timing fix: {dev.get('timing_fix') or 'none'}")
+        return 0
+    cfg.save()
+    cfg.log(f"[{name}] timing fix: {dev.get('timing_fix') or 'none'}")
+    return 0
 
 
 # ---------------------------------------------------------------- panel / hotkeys
@@ -503,6 +534,13 @@ def build_parser():
     g.add_argument("--cloud", action="store_true")
     g.add_argument("--local", action="store_true")
     s.set_defaults(func=cmd_remote)
+
+    s = sub.add_parser("fix", help="timing compensation for generated codes (set by 'ac calibrate', or by hand)")
+    s.add_argument("--mark", type=int, help="microseconds added to every mark (negative = shorter)")
+    s.add_argument("--space", type=int, help="microseconds added to every space")
+    s.add_argument("--clear", action="store_true")
+    s.add_argument("--device")
+    s.set_defaults(func=cmd_fix)
 
     sub.add_parser("panel", help="open / close the control window").set_defaults(func=cmd_panel)
     s = sub.add_parser("hotkeys", help="write an AutoHotkey v2 script from the config (Windows)")
