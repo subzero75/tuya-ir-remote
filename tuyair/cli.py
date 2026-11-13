@@ -237,8 +237,19 @@ def remote_discover(cfg, a):
         X.map_commands(send, ask, save_label, address=address, protocol=protocol, on_seen=seen, only=only)
         cfg.save()
     else:
+        import re
+        known = set()
+        for k in (r.get("keys") or {}).values():
+            m = re.search(r"(?:nec|proton)\s+(0x[0-9a-f]+)\s+(0x[0-9a-f]+)", str(k.get("source", "")), re.I)
+            if m and int(m.group(1), 16) == address:
+                known.add(int(m.group(2), 16))
+        only = None
+        if known and not a.all:
+            only = [c for c in range(start, end + 1) if c not in known]
+            print(f"Skipping {len(known)} command(s) that already have a name (use --all to include them).")
         nxt = X.map_commands(send, ask, save_label, start, end, address, on_progress=progress,
-                             protocol=protocol, on_seen=seen)
+                             protocol=protocol, on_seen=seen, only=only)
+        nxt = end + 1 if nxt is None else nxt
         progress(nxt)
         if nxt <= end:
             print(f"Stopped at {nxt:#04x}. Run the same command again to continue.")
@@ -566,6 +577,7 @@ def build_parser():
     s.add_argument("--start", help="discover: first command to try (default: where you stopped)")
     s.add_argument("--end", help="discover: last command to try (default 0xFF)")
     s.add_argument("--review", action="store_true", help="discover: go through the commands you marked with ?")
+    s.add_argument("--all", action="store_true", help="discover: also send commands that already have a name")
     s.add_argument("--before", action="append", metavar="KEY",
                    help="discover: saved key(s) sent before every test command, e.g. --before exit_menu --before menu "
                         "to test inside the menu even if a command closes it")

@@ -285,6 +285,9 @@ def test_map_commands_labels_and_resume():
                          address=0x01, say=lambda *a: None, on_progress=progress.append)
     assert saved == {"power": 0x11, "vol_up": 0x12}
     assert nxt == 0x13 and progress[-1] == 0x13
+    done = X.map_commands(lambda c: None, X.Asker(lambda p: ""), lambda l, c: None, start=0, end=2,
+                          say=lambda *a: None)
+    assert done is None                                  # finished the range
 
 
 def test_map_commands_marks_and_reviews():

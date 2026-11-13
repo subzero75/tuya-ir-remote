@@ -119,6 +119,6 @@ def map_commands(send, ask, save_label, start=0, end=255, address=0, say=print, 
             save_label(answer.replace(" ", "_"), cmd)
             say(f"  saved {answer} = {cmd:#04x}")
         i += 1
-        if on_progress and only is None:
+        if on_progress:
             on_progress(cmd + 1)
-    return todo[i] if i < len(todo) else (end + 1 if only is None else None)
+    return todo[i] if i < len(todo) else None
