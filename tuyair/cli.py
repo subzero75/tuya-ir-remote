@@ -196,6 +196,10 @@ def remote_discover(cfg, a):
     print(f"Learned key ids you can use: {', '.join(list(_keys_hint(r)))} ... or any name.")
 
     def save_label(label, cmd):
+        label = X.clean_label(label, ask, r.get("keys") or {})
+        if not label:
+            print("  not saved")
+            return
         R.save_key(cfg, a.name, label, X.code(address, cmd, protocol), f"discover {protocol} {address:#04x} {cmd:#04x}")
 
     def progress(n):

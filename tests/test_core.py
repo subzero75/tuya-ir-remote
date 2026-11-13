@@ -368,3 +368,12 @@ def test_ac_uses_device_timing_fix(tmp_path, monkeypatch):
     monkeypatch.setattr(ac, "_link", type("L", (), {"send": lambda self, c: sent.append(codes.to_pulses(c))})())
     ac.command("powerful")
     assert sent[0][:4] == [3324 - 57, 1574 + 50, 448 - 57, 390 + 50]
+
+
+def test_clean_label_guards():
+    from tuyair import discover as X
+    no = X.Asker(lambda p: "")
+    assert X.clean_label("vol_up", no, {}) == "vol_up"
+    assert X.clean_label('python_-m_tuyair_remote_discover', no, {}) is None
+    assert X.clean_label("menu", no, {"menu": {}}) is None
+    assert X.clean_label("menu", X.Asker(lambda p: "y"), {"menu": {}}) == "menu"

@@ -71,6 +71,17 @@ def find_address(send, ask, say=print, commands=PROBE_COMMANDS, protocol="nec"):
     return None
 
 
+def clean_label(label, ask, existing=None):
+    """Guard against pasting a command into the prompt or overwriting a key by accident."""
+    suspicious = len(label) > 24 or any(ch in label for ch in '()"%;=\\') or label.startswith(("python", "pip", "-"))
+    if suspicious and ask(f"  Save a key named '{label[:40]}'? That looks like it was pasted by mistake. [y/N]: ") not in YES:
+        return None
+    if existing is not None and label in existing:
+        if ask(f"  '{label}' already exists. Replace it? [y/N]: ") not in YES:
+            return None
+    return label
+
+
 class Asker:
     """input() wrapper that remembers the last answer (lower-cased, stripped)."""
 
