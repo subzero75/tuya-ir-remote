@@ -172,6 +172,7 @@ def _ensure_remote(cfg, a):
 
 def remote_discover(cfg, a):
     """Find the codes of a device whose remote is lost (NEC protocol)."""
+    import re
     from . import discover as X
     from . import remotes as R
     from .device import Link
@@ -191,7 +192,23 @@ def remote_discover(cfg, a):
     print("Tip: if a test turns it off, that's a reaction too - answer y and switch it back on.")
 
     address = nec.parse_number(a.address) if a.address else state.get("address")
-    if address is None:
+    if a.new_address:
+        used = set(state.get("addresses") or []) | ({address} if address is not None else set())
+        known_cmds = sorted({int(m, 16) for k in (r.get("keys") or {}).values()
+                             for m in re.findall(r"(?:nec|proton)\s+0x[0-9a-f]+\s+(0x[0-9a-f]+)", str(k.get("source", "")), re.I)})
+        probe = [nec.parse_number(x) for x in a.probe.split(",")] if a.probe else (known_cmds[:10] or X.PROBE_COMMANDS)
+        print(f"Looking for a second address (skipping {', '.join(hex(u) for u in sorted(used))}).")
+        print(f"Test commands per address: {', '.join(hex(c) for c in probe)} - watch for numbers, the volume bar, menus...")
+        first = [n for u in sorted(used) for n in X.neighbours(u)]
+        found = X.find_address(link.send, ask, protocol=protocol, commands=probe, exclude=used, first=first)
+        if found is None:
+            print("No other address reacted.")
+            return 1
+        state["addresses"] = sorted(used | {found})
+        state.update(address=found, next=0)
+        cfg.save()
+        address = found
+    elif address is None:
         address = X.find_address(link.send, ask, protocol=protocol)
         if address is None:
             other = "proton" if protocol == "nec" else "nec"
@@ -591,6 +608,10 @@ def build_parser():
     s.add_argument("--end", help="discover: last command to try (default 0xFF)")
     s.add_argument("--review", action="store_true", help="discover: go through the commands you marked with ?")
     s.add_argument("--all", action="store_true", help="discover: also send commands that already have a name")
+    s.add_argument("--new-address", action="store_true",
+                   help="discover: look for a second address (some remotes send part of their keys on another one)")
+    s.add_argument("--probe", help="discover --new-address: test commands, comma separated (default: commands that "
+                                   "already worked)")
     s.add_argument("--before", action="append", metavar="KEY",
                    help="discover: saved key(s) sent before every test command, e.g. --before exit_menu --before menu "
                         "to test inside the menu even if a command closes it")

@@ -123,6 +123,10 @@ Mark commands that only make the screen flicker with `?` and go through them aga
 `--review`. To find keys that only work inside a menu (left, right, OK…), open it before every test
 with saved keys: `--before exit_menu --before menu`.
 
+Some remotes send part of their keys on a **second address** (on a real TV: left/right and
+volume down were not on the first one). `--new-address` searches the others, starting next to the
+address already found and testing with commands that already worked.
+
 Every labelled command becomes a key of the remote (window tab, hotkeys, `remote press`).
 Nothing reacts with NEC? Try `--protocol proton`. If a **Daewoo** remote in the Smart Life app makes
 your device react but with the wrong functions, go straight to `--protocol proton --address 20`

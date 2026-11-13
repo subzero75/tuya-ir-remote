@@ -399,3 +399,22 @@ def test_remote_rename(tmp_path):
     assert main(["--config", str(path), "remote", "rename", "tv", "mode", "picture_mode"]) == 0
     assert list(json.loads(path.read_text())["remotes"]["tv"]["keys"]) == ["picture_mode"]
     assert main(["--config", str(path), "remote", "rename", "tv", "nope", "x"]) == 1
+
+
+def test_second_address_search_skips_first_and_starts_nearby():
+    from tuyair import discover as X
+    from tuyair.protocols import nec
+    groups = X.address_groups(exclude={0x20}, first=X.neighbours(0x20))
+    flat = [a for g in groups for a in g]
+    assert 0x20 not in flat and flat[:2] == [0x21, 0x1F] and len(flat) == 255
+    target, batch = 0x21, []
+
+    def send(c):
+        batch.append(nec.decode(codes.to_pulses(c))[0])
+
+    def answer(p):
+        hit = target in batch
+        batch.clear()
+        return "y" if hit else ""
+    assert X.find_address(send, X.Asker(answer), say=lambda *a: None, exclude={0x20},
+                          first=X.neighbours(0x20)) == 0x21

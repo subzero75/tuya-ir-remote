@@ -36,9 +36,10 @@ def code(address, command, protocol="nec"):
     return pulses_to_base64(adjust(PROTOCOLS[protocol].pulses(address, command), FIX))
 
 
-def address_groups(size=16, protocol="nec"):
-    common = COMMON[protocol]
-    rest = [a for a in range(256) if a not in common]
+def address_groups(size=16, protocol="nec", exclude=(), first=()):
+    common = [a for a in list(first) + COMMON[protocol] if a not in exclude]
+    common = list(dict.fromkeys(common))
+    rest = [a for a in range(256) if a not in common and a not in exclude]
     groups = [common[i:i + size // 2] for i in range(0, len(common), size // 2)]
     groups += [rest[i:i + size] for i in range(0, len(rest), size)]
     return groups
@@ -50,9 +51,16 @@ def probe(send, addresses, commands=PROBE_COMMANDS, protocol="nec"):
             send(code(a, c, protocol))
 
 
-def find_address(send, ask, say=print, commands=PROBE_COMMANDS, protocol="nec"):
-    """Return the address the device answers to, or None."""
-    groups = address_groups(protocol=protocol)
+def neighbours(address):
+    """Addresses a second set of buttons often uses: next to the first one, or one bit different."""
+    near = [address + d for d in (1, -1, 2, -2, 3, -3, 4, -4)]
+    bits = [address ^ (1 << b) for b in range(8)]
+    return [a for a in near + bits if 0 <= a <= 0xFF]
+
+
+def find_address(send, ask, say=print, commands=PROBE_COMMANDS, protocol="nec", exclude=(), first=()):
+    """Return an address the device answers to (skipping `exclude`), or None."""
+    groups = address_groups(protocol=protocol, exclude=set(exclude), first=first)
     for gi, group in enumerate(groups, 1):
         say(f"\nGroup {gi}/{len(groups)}: addresses {group[0]:#04x}..{group[-1]:#04x} - watch the screen...")
         probe(send, group, commands, protocol)
