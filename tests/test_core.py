@@ -443,3 +443,24 @@ def test_auto_address_search_stops_on_keypress_and_confirms():
     found = X.find_address_auto(send, X.Asker(answer), say=lambda *a: None, commands=[0x03], exclude={0x20},
                                 first=X.neighbours(0x20), delay=0.1, pressed=pressed, sleep=lambda s: None)
     assert found == 0x23
+
+
+def test_one_by_one_address_search_and_resume():
+    from tuyair import discover as X
+    from tuyair.protocols import nec
+    target, last = 0x1E, []
+
+    def send(c):
+        last.append(nec.decode(codes.to_pulses(c))[0])
+
+    progress = []
+    answers = iter(["", "", "q"])
+    assert X.find_address_one_by_one(send, X.Asker(lambda p: next(answers)), say=lambda *a: None, commands=[3],
+                                     exclude={0x20}, first=X.neighbours(0x20), on_progress=progress.append) is None
+    assert progress == [1, 2]
+
+    def answer(p):
+        return "y" if last[-1] == target else ""
+    found = X.find_address_one_by_one(send, X.Asker(answer), say=lambda *a: None, commands=[3], exclude={0x20},
+                                      first=X.neighbours(0x20), start_at=progress[-1])
+    assert found == target

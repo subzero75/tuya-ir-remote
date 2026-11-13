@@ -204,9 +204,20 @@ def remote_discover(cfg, a):
         first = [n for u in sorted(used) for n in X.neighbours(u)]
         if a.groups:
             found = X.find_address(link.send, ask, protocol=protocol, commands=probe, exclude=used, first=first)
-        else:
+        elif a.auto:
             found = X.find_address_auto(link.send, ask, protocol=protocol, commands=probe[:3], exclude=used,
                                         first=first)
+        else:
+            def addr_progress(n):
+                state["address_search_at"] = n
+                cfg.save()
+            found = X.find_address_one_by_one(link.send, ask, protocol=protocol, commands=probe[:3], exclude=used,
+                                               first=first, start_at=int(state.get("address_search_at", 0)),
+                                               on_progress=addr_progress)
+            if found is None:
+                print(f"Stopped. Run the same command again to continue from where you stopped.")
+                return 0
+            state.pop("address_search_at", None)
         if found is None:
             print("No other address reacted.")
             return 1
@@ -617,8 +628,9 @@ def build_parser():
     s.add_argument("--new-address", action="store_true",
                    help="discover: look for a second address (some remotes send part of their keys on another one)")
     s.add_argument("--groups", action="store_true",
-                   help="discover --new-address: answer per group instead of watching (the default: commands go out by "
-                        "themselves and you press a key when the device reacts)")
+                   help="discover --new-address: one question per group of addresses (fewer questions)")
+    s.add_argument("--auto", action="store_true",
+                   help="discover --new-address: commands go out by themselves; press any key when the device reacts")
     s.add_argument("--probe", help="discover --new-address: test commands, comma separated (default: commands that "
                                    "already worked)")
     s.add_argument("--before", action="append", metavar="KEY",

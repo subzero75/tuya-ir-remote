@@ -195,3 +195,31 @@ def find_address_auto(send, ask, say=print, commands=PROBE_COMMANDS, protocol="n
         say("None of them - continuing.")
         start = hit + 1
     return None
+
+
+def find_address_one_by_one(send, ask, say=print, commands=PROBE_COMMANDS, protocol="nec", exclude=(), first=(),
+                            start_at=0, on_progress=None):
+    """One address per question, like command mapping: Enter = nothing, y = it reacted, r = again, b = back, q = stop."""
+    order = [a for g in address_groups(protocol=protocol, exclude=set(exclude), first=first) for a in g]
+    say(f"{len(order)} addresses. For each: Enter = nothing happened, y = the device reacted, r = send again, "
+        "b = back one, q = stop (progress is saved).")
+    i = min(start_at, len(order))
+    while i < len(order):
+        a = order[i]
+        for c in commands:
+            send(code(a, c, protocol))
+        answer = ask(f"[{i + 1}/{len(order)}] address {a:#04x} - did it react? ")
+        if answer == "q":
+            return None
+        if answer == "r":
+            continue
+        if answer == "b":
+            i = max(0, i - 1)
+            continue
+        if answer in YES:
+            say(f"\nAddress found: {a:#04x}")
+            return a
+        i += 1
+        if on_progress:
+            on_progress(i)
+    return None
