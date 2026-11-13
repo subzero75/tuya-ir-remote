@@ -215,7 +215,13 @@ def remote_discover(cfg, a):
                                                first=first, start_at=int(state.get("address_search_at", 0)),
                                                on_progress=addr_progress)
             if found is None:
-                print(f"Stopped. Run the same command again to continue from where you stopped.")
+                if ask.last == "q":
+                    print("Stopped. Run the same command again to continue from where you stopped.")
+                else:
+                    state.pop("address_search_at", None)
+                    cfg.save()
+                    print("No other address reacted. The missing keys probably use something this tool can't "
+                          "find without the original remote.")
                 return 0
             state.pop("address_search_at", None)
         if found is None:
