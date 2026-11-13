@@ -202,6 +202,21 @@ def remote_discover(cfg, a):
         state["next"] = n
         cfg.save()
 
+    send = link.send
+    if a.before:
+        import time
+        missing = [k for k in a.before if k not in (r.get("keys") or {})]
+        if missing:
+            raise KeyError(f"--before: '{missing[0]}' is not a saved key of '{a.name}'")
+        links = {}
+
+        def send(code):
+            # put the device in a known state first (e.g. exit_menu, then menu), then send the test command
+            R.press(cfg, a.name, a.before, links)
+            time.sleep(0.8)
+            link.send(code)
+        print(f"Before every command: {' -> '.join(a.before)}")
+
     def seen(cmd):
         lst = state.setdefault("seen", [])
         if cmd not in lst:
@@ -215,10 +230,10 @@ def remote_discover(cfg, a):
             return 0
         print(f"Reviewing {len(only)} command(s) marked with ?. Tip: switch the device to an input with a picture first.")
         state["seen"] = []
-        X.map_commands(link.send, ask, save_label, address=address, protocol=protocol, on_seen=seen, only=only)
+        X.map_commands(send, ask, save_label, address=address, protocol=protocol, on_seen=seen, only=only)
         cfg.save()
     else:
-        nxt = X.map_commands(link.send, ask, save_label, start, end, address, on_progress=progress,
+        nxt = X.map_commands(send, ask, save_label, start, end, address, on_progress=progress,
                              protocol=protocol, on_seen=seen)
         progress(nxt)
         if nxt <= end:
@@ -547,6 +562,9 @@ def build_parser():
     s.add_argument("--start", help="discover: first command to try (default: where you stopped)")
     s.add_argument("--end", help="discover: last command to try (default 0xFF)")
     s.add_argument("--review", action="store_true", help="discover: go through the commands you marked with ?")
+    s.add_argument("--before", action="append", metavar="KEY",
+                   help="discover: saved key(s) sent before every test command, e.g. --before exit_menu --before menu "
+                        "to test inside the menu even if a command closes it")
     s.add_argument("--protocol", choices=["nec", "proton"], help="discover: IR protocol (default nec)")
     s.add_argument("--nec", nargs=2, metavar=("ADDRESS", "COMMAND"), help="add-code: NEC address and command")
     s.add_argument("--proton", nargs=2, metavar=("DEVICE", "COMMAND"), help="add-code: Proton device and command")

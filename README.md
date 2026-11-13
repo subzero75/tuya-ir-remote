@@ -119,6 +119,10 @@ tuyair remote discover tv
    `menu`, `num_1`, `input`… or any name), or just Enter if nothing did. `r` = send again, `b` = back,
    `q` = stop. Progress is saved — run the same command to continue.
 
+Mark commands that only make the screen flicker with `?` and go through them again later with
+`--review`. To find keys that only work inside a menu (left, right, OK…), open it before every test
+with saved keys: `--before exit_menu --before menu`.
+
 Every labelled command becomes a key of the remote (window tab, hotkeys, `remote press`).
 Nothing reacts with NEC? Try `--protocol proton`. If a **Daewoo** remote in the Smart Life app makes
 your device react but with the wrong functions, go straight to `--protocol proton --address 20`
