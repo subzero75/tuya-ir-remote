@@ -199,7 +199,7 @@ def remote_discover(cfg, a):
         label = X.clean_label(label, ask, r.get("keys") or {})
         if not label:
             print("  not saved")
-            return
+            return False
         R.save_key(cfg, a.name, label, X.code(address, cmd, protocol), f"discover {protocol} {address:#04x} {cmd:#04x}")
 
     def progress(n):

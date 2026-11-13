@@ -380,3 +380,12 @@ def test_clean_label_guards():
     assert X.clean_label('python_-m_tuyair_remote_discover', no, {}) is None
     assert X.clean_label("menu", no, {"menu": {}}) is None
     assert X.clean_label("menu", X.Asker(lambda p: "y"), {"menu": {}}) == "menu"
+
+
+def test_map_commands_does_not_claim_a_refused_save():
+    from tuyair import discover as X
+    said = []
+    answers = iter(["down", "q"])
+    X.map_commands(lambda c: None, X.Asker(lambda p: next(answers)), lambda l, c: False, start=0, end=3,
+                   say=said.append)
+    assert not any("saved" in s for s in said)

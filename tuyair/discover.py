@@ -116,8 +116,9 @@ def map_commands(send, ask, save_label, start=0, end=255, address=0, say=print, 
             if on_seen:
                 on_seen(cmd)
         elif answer:
-            save_label(answer.replace(" ", "_"), cmd)
-            say(f"  saved {answer} = {cmd:#04x}")
+            label = answer.replace(" ", "_")
+            if save_label(label, cmd) is not False:
+                say(f"  saved {label} = {cmd:#04x}")
         i += 1
         if on_progress:
             on_progress(cmd + 1)
