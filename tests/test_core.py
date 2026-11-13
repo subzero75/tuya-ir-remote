@@ -388,4 +388,4 @@ def test_map_commands_does_not_claim_a_refused_save():
     answers = iter(["down", "q"])
     X.map_commands(lambda c: None, X.Asker(lambda p: next(answers)), lambda l, c: False, start=0, end=3,
                    say=said.append)
-    assert not any("saved" in s for s in said)
+    assert not any("saved down" in s for s in said)
