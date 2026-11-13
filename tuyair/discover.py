@@ -131,3 +131,67 @@ def map_commands(send, ask, save_label, start=0, end=255, address=0, say=print, 
         if on_progress:
             on_progress(cmd + 1)
     return todo[i] if i < len(todo) else None
+
+
+# ---------------------------------------------------------------- auto mode (just watch)
+def key_pressed():
+    """True if a key was pressed in the console (doesn't wait)."""
+    try:
+        import msvcrt  # Windows
+        if msvcrt.kbhit():
+            while msvcrt.kbhit():
+                msvcrt.getwch()
+            return True
+        return False
+    except ImportError:
+        import select
+        import sys
+        if select.select([sys.stdin], [], [], 0)[0]:
+            sys.stdin.readline()
+            return True
+        return False
+
+
+def auto_scan(items, send, delay=0.7, say=print, pressed=key_pressed, sleep=None):
+    """Send items one after another; return the index being sent when the user pressed a key, or None."""
+    import time
+    sleep = sleep or time.sleep
+    for i, (address, command) in enumerate(items):
+        say(f"  {i + 1}/{len(items)}  address {address:#04x}  command {command:#04x}")
+        send(code(address, command, AUTO_PROTOCOL[0]))
+        steps = max(1, int(delay / 0.1))
+        for _ in range(steps):
+            if pressed():
+                return i
+            sleep(delay / steps)
+    return None
+
+
+AUTO_PROTOCOL = ["nec"]
+
+
+def find_address_auto(send, ask, say=print, commands=PROBE_COMMANDS, protocol="nec", exclude=(), first=(),
+                      delay=0.7, pressed=key_pressed, sleep=None):
+    """Watch-only search: commands go out by themselves; press any key when the device reacts,
+    then confirm which of the last few it was."""
+    AUTO_PROTOCOL[0] = protocol
+    order = [a for g in address_groups(protocol=protocol, exclude=set(exclude), first=first) for a in g]
+    items = [(a, c) for a in order for c in commands]
+    say(f"Sending {len(items)} test commands by themselves. Watch the device and press any key as soon as it reacts.")
+    start = 0
+    while start < len(items):
+        hit = auto_scan(items[start:], send, delay, say, pressed, sleep)
+        if hit is None:
+            return None
+        hit += start
+        candidates = list(dict.fromkeys(a for a, _ in reversed(items[max(0, hit - 3):hit + 1])))
+        say("Stopped. Checking the last addresses one by one...")
+        for a in candidates:
+            for c in commands:
+                send(code(a, c, protocol))
+            if ask(f"  Address {a:#04x}: did it react now? [y/N]: ") in YES:
+                say(f"\nAddress found: {a:#04x}")
+                return a
+        say("None of them - continuing.")
+        start = hit + 1
+    return None

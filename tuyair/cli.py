@@ -196,11 +196,17 @@ def remote_discover(cfg, a):
         used = set(state.get("addresses") or []) | ({address} if address is not None else set())
         known_cmds = sorted({int(m, 16) for k in (r.get("keys") or {}).values()
                              for m in re.findall(r"(?:nec|proton)\s+0x[0-9a-f]+\s+(0x[0-9a-f]+)", str(k.get("source", "")), re.I)})
-        probe = [nec.parse_number(x) for x in a.probe.split(",")] if a.probe else (known_cmds[:10] or X.PROBE_COMMANDS)
+        favourites = [c for c in (0x03, 0x10, 0x40, 0x02, 0x09) if c in known_cmds]
+        probe = ([nec.parse_number(x) for x in a.probe.split(",")] if a.probe
+                 else (favourites + [c for c in known_cmds if c not in favourites])[:10] or X.PROBE_COMMANDS)
         print(f"Looking for a second address (skipping {', '.join(hex(u) for u in sorted(used))}).")
         print(f"Test commands per address: {', '.join(hex(c) for c in probe)} - watch for numbers, the volume bar, menus...")
         first = [n for u in sorted(used) for n in X.neighbours(u)]
-        found = X.find_address(link.send, ask, protocol=protocol, commands=probe, exclude=used, first=first)
+        if a.groups:
+            found = X.find_address(link.send, ask, protocol=protocol, commands=probe, exclude=used, first=first)
+        else:
+            found = X.find_address_auto(link.send, ask, protocol=protocol, commands=probe[:3], exclude=used,
+                                        first=first)
         if found is None:
             print("No other address reacted.")
             return 1
@@ -610,6 +616,9 @@ def build_parser():
     s.add_argument("--all", action="store_true", help="discover: also send commands that already have a name")
     s.add_argument("--new-address", action="store_true",
                    help="discover: look for a second address (some remotes send part of their keys on another one)")
+    s.add_argument("--groups", action="store_true",
+                   help="discover --new-address: answer per group instead of watching (the default: commands go out by "
+                        "themselves and you press a key when the device reacts)")
     s.add_argument("--probe", help="discover --new-address: test commands, comma separated (default: commands that "
                                    "already worked)")
     s.add_argument("--before", action="append", metavar="KEY",

@@ -418,3 +418,28 @@ def test_second_address_search_skips_first_and_starts_nearby():
         return "y" if hit else ""
     assert X.find_address(send, X.Asker(answer), say=lambda *a: None, exclude={0x20},
                           first=X.neighbours(0x20)) == 0x21
+
+
+def test_auto_address_search_stops_on_keypress_and_confirms():
+    from tuyair import discover as X
+    from tuyair.protocols import nec
+    target = 0x23
+    sent = []
+    state = {"pressed": False}
+
+    def send(c):
+        sent.append(nec.decode(codes.to_pulses(c)))
+
+    def pressed():
+        # the user presses a key one step after the device reacted
+        if not state["pressed"] and len(sent) >= 2 and sent[-2][0] == target:
+            state["pressed"] = True
+            return True
+        return False
+
+    def answer(p):
+        return "y" if "0x23" in p else ""
+
+    found = X.find_address_auto(send, X.Asker(answer), say=lambda *a: None, commands=[0x03], exclude={0x20},
+                                first=X.neighbours(0x20), delay=0.1, pressed=pressed, sleep=lambda s: None)
+    assert found == 0x23
