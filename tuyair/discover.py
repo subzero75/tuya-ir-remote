@@ -84,12 +84,14 @@ class Asker:
 
 
 def map_commands(send, ask, save_label, start=0, end=255, address=0, say=print, on_progress=None,
-                 protocol="nec"):
+                 protocol="nec", on_seen=None, only=None):
     """Send each command and record what the user says it does. Returns the next command to try."""
     say("\nFor each command: Enter = nothing happened, type what it did (e.g. power, vol_up, menu, "
         "num_1, input, or any name), r = send again, b = back one, q = stop (progress is saved).")
-    cmd = start
-    while cmd <= end:
+    todo = list(only) if only is not None else list(range(start, end + 1))
+    i = 0
+    while i < len(todo):
+        cmd = todo[i]
         send(code(address, cmd, protocol))
         answer = ask(f"[{cmd:#04x}] what happened? ")
         if answer == "q":
@@ -97,12 +99,15 @@ def map_commands(send, ask, save_label, start=0, end=255, address=0, say=print, 
         if answer == "r":
             continue
         if answer == "b":
-            cmd = max(start, cmd - 1)
+            i = max(0, i - 1)
             continue
-        if answer:
+        if answer == "?":
+            if on_seen:
+                on_seen(cmd)
+        elif answer:
             save_label(answer.replace(" ", "_"), cmd)
             say(f"  saved {answer} = {cmd:#04x}")
-        cmd += 1
-        if on_progress:
-            on_progress(cmd)
-    return cmd
+        i += 1
+        if on_progress and only is None:
+            on_progress(cmd + 1)
+    return todo[i] if i < len(todo) else (end + 1 if only is None else None)

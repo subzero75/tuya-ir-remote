@@ -287,6 +287,20 @@ def test_map_commands_labels_and_resume():
     assert nxt == 0x13 and progress[-1] == 0x13
 
 
+def test_map_commands_marks_and_reviews():
+    from tuyair import discover as X
+    answers = iter(["?", "", "?", "q"])
+    seen = []
+    X.map_commands(lambda c: None, X.Asker(lambda p: next(answers)), lambda l, c: None, start=0, end=9,
+                   say=lambda *a: None, on_seen=seen.append)
+    assert seen == [0, 2]
+    answers = iter(["mute", ""])
+    saved = {}
+    X.map_commands(lambda c: None, X.Asker(lambda p: next(answers)), lambda l, c: saved.__setitem__(l, c),
+                   say=lambda *a: None, only=seen)
+    assert saved == {"mute": 0}
+
+
 def test_proton_roundtrip():
     from tuyair.protocols import proton
     p = proton.pulses(20, 0x0B)

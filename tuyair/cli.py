@@ -202,12 +202,31 @@ def remote_discover(cfg, a):
         state["next"] = n
         cfg.save()
 
-    nxt = X.map_commands(link.send, ask, save_label, start, end, address, on_progress=progress, protocol=protocol)
-    progress(nxt)
+    def seen(cmd):
+        lst = state.setdefault("seen", [])
+        if cmd not in lst:
+            lst.append(cmd)
+        cfg.save()
+
+    if a.review:
+        only = sorted(state.get("seen") or [])
+        if not only:
+            print("Nothing marked with ? yet.")
+            return 0
+        print(f"Reviewing {len(only)} command(s) marked with ?. Tip: switch the device to an input with a picture first.")
+        state["seen"] = []
+        X.map_commands(link.send, ask, save_label, address=address, protocol=protocol, on_seen=seen, only=only)
+        cfg.save()
+    else:
+        nxt = X.map_commands(link.send, ask, save_label, start, end, address, on_progress=progress,
+                             protocol=protocol, on_seen=seen)
+        progress(nxt)
+        if nxt <= end:
+            print(f"Stopped at {nxt:#04x}. Run the same command again to continue.")
     keys = ", ".join(r.get("keys") or {}) or "none yet"
     print(f"\nSaved keys: {keys}")
-    if nxt <= end:
-        print(f"Stopped at {nxt:#04x}. Run the same command again to continue.")
+    if state.get("seen"):
+        print(f"Marked with ?: {len(state['seen'])}. Look at them again later:  tuyair remote discover {a.name} --review")
     return 0
 
 
@@ -527,6 +546,7 @@ def build_parser():
     s.add_argument("--address", help="discover: skip the search and use this NEC address (e.g. 0x00, 0x7F80)")
     s.add_argument("--start", help="discover: first command to try (default: where you stopped)")
     s.add_argument("--end", help="discover: last command to try (default 0xFF)")
+    s.add_argument("--review", action="store_true", help="discover: go through the commands you marked with ?")
     s.add_argument("--protocol", choices=["nec", "proton"], help="discover: IR protocol (default nec)")
     s.add_argument("--nec", nargs=2, metavar=("ADDRESS", "COMMAND"), help="add-code: NEC address and command")
     s.add_argument("--proton", nargs=2, metavar=("DEVICE", "COMMAND"), help="add-code: Proton device and command")
