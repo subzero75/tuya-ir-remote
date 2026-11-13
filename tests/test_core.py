@@ -389,3 +389,13 @@ def test_map_commands_does_not_claim_a_refused_save():
     X.map_commands(lambda c: None, X.Asker(lambda p: next(answers)), lambda l, c: False, start=0, end=3,
                    say=said.append)
     assert not any("saved down" in s for s in said)
+
+
+def test_remote_rename(tmp_path):
+    from tuyair.cli import main
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"devices": {"ir": {"id": "x", "key": "y"}},
+                                "remotes": {"tv": {"template": "tv", "device": "ir", "keys": {"mode": {"code": "AAAA"}}}}}))
+    assert main(["--config", str(path), "remote", "rename", "tv", "mode", "picture_mode"]) == 0
+    assert list(json.loads(path.read_text())["remotes"]["tv"]["keys"]) == ["picture_mode"]
+    assert main(["--config", str(path), "remote", "rename", "tv", "nope", "x"]) == 1

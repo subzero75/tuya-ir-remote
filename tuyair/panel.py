@@ -201,7 +201,8 @@ class Panel:
         for ri, row in enumerate(rows):
             for ci, key in enumerate(row):
                 if key:
-                    self.btn(f, keys.get(key, key), lambda k=key: self.press(name, k), small=True).grid(
+                    label = keys.get(key) or key.replace("_", " ").upper()
+                    self.btn(f, label, lambda k=key: self.press(name, k), small=True).grid(
                         row=ri, column=ci, padx=4, pady=3, sticky="ew")
         for c in range(3):
             f.columnconfigure(c, weight=1, minsize=96)

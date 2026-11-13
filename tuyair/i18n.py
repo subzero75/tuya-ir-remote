@@ -22,7 +22,9 @@ TEXTS = {
                  "mode": "MODE", "timer": "TIMER", "speed": "SPEED", "speed_up": "SPEED +",
                  "speed_down": "SPEED −", "swing": "SWING", "light": "LIGHT", "prev": "⏮",
                  "play_pause": "⏯", "next": "⏭", "bass_up": "BASS +", "bass_down": "BASS −",
-                 "rewind": "⏪", "forward": "⏩"},
+                 "rewind": "⏪", "forward": "⏩", "picture_mode": "PICTURE MODE", "sound_mode": "SOUND MODE",
+                 "sleep": "SLEEP", "exit": "EXIT", "enter": "ENTER", "tv_input": "TV", "vga": "VGA",
+                 "hdmi": "HDMI", "info": "INFO", "aspect": "ASPECT"},
         "no_keys": "No buttons yet. Run:  tuyair remote learn {name}",
     },
     "ar": {
@@ -42,7 +44,9 @@ TEXTS = {
                  "white": "أبيض", "cool": "بارد", "red": "أحمر", "green": "أخضر", "blue": "أزرق",
                  "mode": "الوضع", "timer": "مؤقت", "speed": "السرعة", "speed_up": "سرعة +",
                  "speed_down": "سرعة −", "swing": "تأرجح", "light": "الإضاءة",
-                 "bass_up": "باس +", "bass_down": "باس −"},
+                 "bass_up": "باس +", "bass_down": "باس −", "picture_mode": "وضع الصورة",
+                 "sound_mode": "وضع الصوت", "sleep": "مؤقت النوم", "exit": "خروج", "enter": "دخول",
+                 "tv_input": "تلفزيون", "info": "معلومات", "aspect": "أبعاد الصورة"},
         "no_keys": "ما فيه أزرار للحين. شغّل:  tuyair remote learn {name}",
     },
 }

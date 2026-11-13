@@ -131,6 +131,19 @@ def cmd_remote(cfg, a):
             raise ValueError(f"Usage: tuyair remote press {a.name} KEY [KEY ...]")
         R.press(cfg, a.name, a.keys)
         return 0
+    if act == "rename":
+        if len(a.keys) != 2:
+            raise ValueError(f"Usage: tuyair remote rename {a.name} OLD NEW")
+        old, new = a.keys
+        keys = R.get(cfg, a.name).setdefault("keys", {})
+        if old not in keys:
+            raise KeyError(f"'{a.name}' has no key '{old}'.")
+        if new in keys:
+            raise ValueError(f"'{a.name}' already has a key '{new}'. Forget it first.")
+        keys[new] = keys.pop(old)
+        cfg.save()
+        cfg.log(f"Renamed {a.name}.{old} -> {new}")
+        return 0
     if act == "forget":
         r = R.get(cfg, a.name)
         for k in a.keys:
@@ -563,9 +576,9 @@ def build_parser():
     s.set_defaults(func=cmd_ac)
 
     s = sub.add_parser("remote", help="devices with a remote (TV, light, fan...): templates, add, learn, discover, "
-                                      "cloud-map, add-code, press, list, forget, remove")
+                                      "cloud-map, add-code, press, rename, list, forget, remove")
     s.add_argument("action", choices=["templates", "list", "add", "learn", "discover", "cloud-map", "add-code",
-                                      "press", "forget", "remove"])
+                                      "press", "rename", "forget", "remove"])
     s.add_argument("name", nargs="?")
     s.add_argument("keys", nargs="*", help="press / forget: key ids")
     s.add_argument("--template", help="add: tv, light, fan, audio, box, projector, custom")
