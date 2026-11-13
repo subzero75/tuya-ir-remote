@@ -154,6 +154,7 @@ On Linux/macOS, bind the same commands (`tuyair ac on`, `tuyair panel`...) in yo
 
 | Symptom | Fix |
 |---|---|
+| Commands say *Sent* but nothing happens, LED doesn't blink | The blaster wants the other command format: `tuyair fix --control-type 1` (or `2`). This was the fix on a v3.5 "Smart IR" blaster. |
 | `json obj data unvalid` | Normal for IR blasters: the device answered with your key, it just has no status. |
 | Setup can't find the blaster | Make sure it's powered and on the same network; allow Python in the firewall (UDP 6666/6667/7000); or enter the IP from your router. |
 | Worked before, now fails | A new IP is found automatically. If the blaster was re-paired in the app it has a new key → run `tuyair setup` again. |
@@ -230,6 +231,7 @@ MIT
 - **المكيف ينطفي بس ما يشتغل:** شغّل `tuyair ac calibrate`، وهو يلتقط إشارة التشغيل الحقيقية من ريموتك.
 - **رسالة json obj data unvalid:** طبيعية، ومعناها إن الجهاز رد بالمفتاح الصحيح.
 - **مكيف من ماركة ثانية:** في Smart Life أضف ريموت مكيف لجهاز الـ IR واختر ماركتك، وبعدها اختر `tuya-cloud` في `tuyair setup`.
+- **الأوامر تنرسل بس ما يصير شي، واللمبة ما تومض:** جهاز الـ IR يبي صيغة أوامر ثانية، فاكتب `tuyair fix --control-type 1` (أو `2`).
 - **كان شغال ووقف:** تغيّر الـ IP يتحل تلقائياً. أما إذا أعدت ربط الجهاز في التطبيق، فأعد `tuyair setup`.
 - **ملف الإعدادات:** `config.json` فيه مفاتيح سرية. خذ منه نسخة احتياطية، ولا تشاركه مع أحد.
 

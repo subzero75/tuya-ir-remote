@@ -71,6 +71,8 @@ def run(cfg):
     print("\nStep 4/4 - Testing the connection...")
     ok, msg = D.Link(cfg, name).check()
     print(f"  {'OK' if ok else 'FAILED'}: {msg}")
+    print("  Note: if later commands are 'Sent' but the device never reacts (and the blaster LED doesn't blink),")
+    print("  switch the command format:  tuyair fix --control-type 1   (or 2). Many blasters need 1.")
 
     if yes("\nIs it an air conditioner you want to control (panel + hotkeys)?"):
         protos = available()

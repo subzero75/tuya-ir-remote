@@ -424,6 +424,8 @@ def cmd_fix(cfg, a):
     """Show or set the blaster's timing compensation for generated codes."""
     name = cfg.device_name(a.device)
     dev = cfg.device(name)
+    if a.control_type is not None:
+        dev["control_type"] = a.control_type
     if a.clear:
         dev.pop("timing_fix", None)
     elif a.mark is not None or a.space is not None:
@@ -433,11 +435,11 @@ def cmd_fix(cfg, a):
         if a.space is not None:
             fix["space"] = a.space
         dev["timing_fix"] = fix
-    else:
-        print(f"[{name}] timing fix: {dev.get('timing_fix') or 'none'}")
+    elif a.control_type is None:
+        print(f"[{name}] control_type: {dev.get('control_type')}  timing fix: {dev.get('timing_fix') or 'none'}")
         return 0
     cfg.save()
-    cfg.log(f"[{name}] timing fix: {dev.get('timing_fix') or 'none'}")
+    cfg.log(f"[{name}] control_type: {dev.get('control_type')}  timing fix: {dev.get('timing_fix') or 'none'}")
     return 0
 
 
@@ -535,7 +537,10 @@ def build_parser():
     g.add_argument("--local", action="store_true")
     s.set_defaults(func=cmd_remote)
 
-    s = sub.add_parser("fix", help="timing compensation for generated codes (set by 'ac calibrate', or by hand)")
+    s = sub.add_parser("fix", help="blaster settings: --control-type 1|2 (if commands are accepted but nothing is sent), "
+                                   "timing compensation for generated codes")
+    s.add_argument("--control-type", type=int, choices=[1, 2],
+                   help="how the blaster takes IR commands; try the other one if sending does nothing")
     s.add_argument("--mark", type=int, help="microseconds added to every mark (negative = shorter)")
     s.add_argument("--space", type=int, help="microseconds added to every space")
     s.add_argument("--clear", action="store_true")
