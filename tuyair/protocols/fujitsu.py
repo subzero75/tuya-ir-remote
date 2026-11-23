@@ -110,8 +110,14 @@ class Fujitsu(Protocol):
         return " ".join("%02X" % b for b in data) if data else None
 
     def calibrate(self, pulses):
-        if not self.decode_bytes(pulses):
+        data = self.decode_bytes(pulses)
+        if not data:
             raise ValueError("This capture is not a Fujitsu-family signal.")
+        if len(data) < 16:
+            raise ValueError(
+                "That was a short command (%s), not a full power-on frame, so it was NOT used. "
+                "Press START/STOP on the remote until its screen shows it is OFF, then run "
+                "calibrate again and press START/STOP once." % " ".join("%02X" % b for b in data))
         body = pulses[2:]
         marks = sorted(body[0::2])
         spaces = [x for x in body[1::2] if x < 3000]

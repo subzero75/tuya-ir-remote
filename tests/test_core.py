@@ -63,6 +63,13 @@ def test_calibrate_rejects_other_protocols():
         get_protocol("fujitsu").calibrate([9000, 4500] + [560, 560] * 40)
 
 
+def test_calibrate_rejects_short_off_frame():
+    p = get_protocol("fujitsu")
+    off = p.pulses(p.short_bytes(0x02))
+    with pytest.raises(ValueError, match="short command"):
+        p.calibrate(off)
+
+
 @pytest.mark.parametrize("temp", [16, 22, 30])
 def test_checksum(temp):
     data = get_protocol("fujitsu").full_bytes({"mode": "heat", "temp": temp, "fan": "low", "swing": "both"}, False)

@@ -481,10 +481,11 @@ def ac_calibrate(cfg, ac, a):
                              "cloud" if a.cloud else "auto", 15)
         if not code:
             raise D.DeviceError("Nothing captured.")
-        save_button(cfg, "remote_power_on", code, ac.opts.get("device"), "calibrate capture")
     pulses = to_pulses(code)
-    timing = ac.protocol.calibrate(pulses)
     print(f"Captured bytes: {ac.protocol.decode(pulses)}")
+    timing = ac.protocol.calibrate(pulses)   # rejects unusable captures before anything is saved
+    if not a.value:
+        save_button(cfg, "remote_power_on", code, ac.opts.get("device"), "calibrate capture")
     cfg.data["ac"]["timing"] = timing
     if ac.protocol.name == "fujitsu":
         from .protocols.fujitsu import DEFAULT_TIMING as T0
