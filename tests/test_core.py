@@ -471,3 +471,17 @@ def test_one_by_one_address_search_and_resume():
     found = X.find_address_one_by_one(send, X.Asker(answer), say=lambda *a: None, commands=[3], exclude={0x20},
                                       first=X.neighbours(0x20), start_at=progress[-1])
     assert found == target
+
+
+def test_learn_falls_back_when_remembered_cloud_fails(tmp_path, monkeypatch):
+    from tuyair import cli, device as D
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"default_device": "ir", "cloud": {"key": "k", "secret": "s"},
+                                "devices": {"ir": {"id": "x", "key": "k", "learn_method": "cloud"}}}))
+    cfg = Config(path)
+    monkeypatch.setattr(D, "learn_cloud", lambda *a, **k: None)
+    monkeypatch.setattr(D, "open_local", lambda dev: None)
+    monkeypatch.setattr(D, "learn_local", lambda d, t: "CODE")
+    _, code = cli.learn_code(cfg, "power", timeout=1)
+    assert code == "CODE"
+    assert "learn_method" not in json.loads(path.read_text())["devices"]["ir"]

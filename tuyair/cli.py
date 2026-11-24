@@ -28,29 +28,45 @@ def cmd_test(cfg, a):
 
 
 def learn_code(cfg, name, device=None, method="auto", timeout=15):
-    """Learn locally; if the blaster doesn't report locally, fall back to cloud learning."""
+    """Learn locally or through the cloud. In auto mode, try the way that worked last time
+    first and fall back to the other one, so a remembered choice can never lock the user out."""
     dev_name = cfg.device_name(device)
     dev = cfg.device(dev_name)
-    code = None
-    if method == "auto" and dev.get("learn_method") == "cloud" and cfg.get("cloud"):
-        method = "cloud"   # this blaster was seen to report learned codes only to the cloud
-    if method in ("auto", "local"):
+    has_cloud = bool(cfg.get("cloud"))
+
+    def local():
         print(f"Point the remote at the blaster (5-10 cm) and press '{name}' within {timeout} s...")
-        code = D.learn_local(D.open_local(dev), timeout)
-        if not code and method == "auto":
-            if cfg.get("cloud"):
-                print("Nothing came back locally (some blasters only report to the cloud). Trying cloud learning...")
-            else:
-                print("Nothing came back locally. Some blasters only report learned codes to the cloud:")
-                print('add a "cloud" section (run: tuyair setup) and try again, or use --cloud.')
-    if not code and method in ("auto", "cloud") and (cfg.get("cloud") or method == "cloud"):
-        code = D.learn_cloud(cfg.get("cloud"), dev["id"], timeout=max(timeout, 30),
+        return D.learn_local(D.open_local(dev), timeout)
+
+    def cloud():
+        return D.learn_cloud(cfg.get("cloud"), dev["id"], timeout=max(timeout, 30),
                              on_ready=lambda: print(f"Press '{name}' now (30 s)..."))
-        if code and method == "auto" and dev.get("learn_method") != "cloud":
-            dev["learn_method"] = "cloud"
+
+    def remember(way):
+        if dev.get("learn_method", "local") != way:
+            if way == "cloud":
+                dev["learn_method"] = "cloud"
+            else:
+                dev.pop("learn_method", None)
             cfg.save()
-            print("(Remembered: this blaster learns through the cloud; next time it goes straight there.)")
-    return dev_name, code
+
+    if method == "local":
+        return dev_name, local()
+    if method == "cloud":
+        return dev_name, cloud()
+    order = ["cloud", "local"] if dev.get("learn_method") == "cloud" and has_cloud else ["local", "cloud"]
+    for i, way in enumerate(order):
+        if way == "cloud" and not has_cloud:
+            print("Nothing came back locally. Some blasters only report learned codes to the cloud:")
+            print('add a "cloud" section (run: tuyair setup) and try again, or use --cloud.')
+            break
+        if i:
+            print("Nothing captured that way. Trying %s learning..." % way)
+        code = cloud() if way == "cloud" else local()
+        if code:
+            remember(way)
+            return dev_name, code
+    return dev_name, None
 
 
 def cmd_learn(cfg, a):
