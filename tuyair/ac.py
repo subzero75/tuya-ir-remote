@@ -46,7 +46,9 @@ class AC:
         return self._link
 
     def send_pulses(self, pulses):
-        fix = self.cfg.device(self.opts.get("device")).get("timing_fix")
+        # Timings calibrated from the user's own remote already include the blaster's
+        # distortion; adding the device-wide fix on top would compensate twice.
+        fix = None if self.opts.get("timing") else self.cfg.device(self.opts.get("device")).get("timing_fix")
         self.link.send(pulses_to_base64(adjust(pulses, fix)))
 
     def _send_state(self, st, power_on):
