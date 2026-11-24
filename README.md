@@ -169,6 +169,7 @@ On Linux/macOS, bind the same commands (`tuyair ac on`, `tuyair panel`...) in yo
 | `learn` gets nothing | Some blasters only report learned codes to the cloud: authorize *IR Control Hub Open Service* and it falls back automatically. Try `"control_type": 1` for older blasters. |
 | `This API is not subscribed` | Authorize *IR Control Hub Open Service* in the cloud project. |
 | AC turns off but not on | `tuyair ac calibrate` |
+| Short commands (Powerful, Off) work but long ones (On, temperature) don't, and `learn` captures nothing or garbage | Weak power: a PC or TV USB port often can't drive the IR LEDs for long codes. Plug the blaster into a 5 V wall adapter (1 A or more). Do this before re-calibrating. |
 | Window doesn't open from a hotkey | It may already be open: the same hotkey opens and closes it. Errors go to `tuyair.log` next to `config.json`. |
 
 ## Adding a device type or an AC brand
@@ -237,6 +238,7 @@ MIT
 ### مشاكل شائعة
 
 - **المكيف ينطفي بس ما يشتغل:** شغّل `tuyair ac calibrate`، وهو يلتقط إشارة التشغيل الحقيقية من ريموتك.
+- **الأوامر القصيرة تشتغل والطويلة لا، والتعلم ما يلتقط شي:** غالباً الكهرباء ضعيفة. منفذ USB في الكمبيوتر أو الشاشة ما يكفي للأكواد الطويلة، فشبّك الجهاز على شاحن جداري ٥ فولت (١ أمبير أو أكثر) قبل أي معايرة.
 - **رسالة json obj data unvalid:** طبيعية، ومعناها إن الجهاز رد بالمفتاح الصحيح.
 - **مكيف من ماركة ثانية:** في Smart Life أضف ريموت مكيف لجهاز الـ IR واختر ماركتك، وبعدها اختر `tuya-cloud` في `tuyair setup`.
 - **الأوامر تنرسل بس ما يصير شي، واللمبة ما تومض:** جهاز الـ IR يبي صيغة أوامر ثانية، فاكتب `tuyair fix --control-type 1` (أو `2`).
